@@ -1,6 +1,6 @@
-# Clawd in Fifty-One Art Styles
+# Clawd in Fifty-Two Art Styles
 
-Clawd, the Claude Code mascot, drawn live in fifty-one art styles: from the cave wall to the lapel pin, and a few experiments beyond. Every line is drawn by code in your browser, with no images and no dependencies.
+Clawd, the Claude Code mascot, drawn live in fifty-two art styles: from the cave wall to the lapel pin, and a few experiments beyond. Every line is drawn by code in your browser, with no images and no dependencies.
 
 Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/artifact/TrrKcRKsCUtAFYzyhF6tDH).
 
@@ -17,7 +17,7 @@ Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/ar
 <tr><td align="center"><img src="media/ssampler.gif" width="200" alt="Clawd, Sampler"><br><sub><b>37</b> Sampler</sub></td><td align="center"><img src="media/sbill.gif" width="200" alt="Clawd, Strongman Bill"><br><sub><b>38</b> Strongman Bill</sub></td><td align="center"><img src="media/sconst.gif" width="200" alt="Clawd, Constructivism"><br><sub><b>39</b> Constructivism</sub></td><td align="center"><img src="media/sdeco.gif" width="200" alt="Clawd, Art Deco"><br><sub><b>40</b> Art Deco</sub></td></tr>
 <tr><td align="center"><img src="media/sgolden.gif" width="200" alt="Clawd, Golden Age"><br><sub><b>41</b> Golden Age</sub></td><td align="center"><img src="media/sneon.gif" width="200" alt="Clawd, Neon"><br><sub><b>42</b> Neon</sub></td><td align="center"><img src="media/ssilk.gif" width="200" alt="Clawd, Silkscreen"><br><sub><b>43</b> Silkscreen</sub></td><td align="center"><img src="media/sprinter.gif" width="200" alt="Clawd, Line Printer"><br><sub><b>44</b> Line Printer</sub></td></tr>
 <tr><td align="center"><img src="media/shandheld.gif" width="200" alt="Clawd, Handheld"><br><sub><b>45</b> Handheld</sub></td><td align="center"><img src="media/slowpoly.gif" width="200" alt="Clawd, Low Poly"><br><sub><b>46</b> Low Poly</sub></td><td align="center"><img src="media/sstencil.gif" width="200" alt="Clawd, Stencil"><br><sub><b>47</b> Stencil</sub></td><td align="center"><img src="media/spatch.gif" width="200" alt="Clawd, Patch"><br><sub><b>48</b> Patch</sub></td></tr>
-<tr><td align="center"><img src="media/schrome.gif" width="200" alt="Clawd, Liquid Chrome"><br><sub><b>49</b> Liquid Chrome</sub></td><td align="center"><img src="media/sskin.gif" width="200" alt="Clawd, Media Player Skin"><br><sub><b>50</b> Media Player Skin</sub></td><td align="center"><img src="media/sholo.gif" width="200" alt="Clawd, Holo Sticker"><br><sub><b>51</b> Holo Sticker</sub></td><td></td></tr>
+<tr><td align="center"><img src="media/schrome.gif" width="200" alt="Clawd, Liquid Chrome"><br><sub><b>49</b> Liquid Chrome</sub></td><td align="center"><img src="media/sskin.gif" width="200" alt="Clawd, Media Player Skin"><br><sub><b>50</b> Media Player Skin</sub></td><td align="center"><img src="media/sholo.gif" width="200" alt="Clawd, Holo Sticker"><br><sub><b>51</b> Holo Sticker</sub></td><td align="center"><img src="media/svista.gif" width="200" alt="Clawd, Vista"><br><sub><b>52</b> Vista</sub></td></tr>
 </table>
 
 ## Credits
@@ -26,6 +26,7 @@ Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/ar
 - **Art styles 21–29** (`henrik-styles.js`): Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd. Only the look carries over.
 - **Art styles 30–48** (`henrik-styles.js`): inspired by the plates of [*Superman in Flight*](https://claude.ai/artifact/7F2XhpmgiuyxHKgQ9Vgr9Q), a film that carries one hero through twenty plates of art history. Nineteen of those looks, re-drawn around Clawd (the petroglyph plate is left out, as 01 Cave Painting already covers it).
 - **Art styles 49–51** (`henrik-styles.js`): a Y2K trio. It steers clear of the see-through plastic that 29 Frutiger Aero already covers.
+- **Art style 52** (`henrik-styles.js`): the Windows Vista desktop, with Clawd as a glossy Explorer icon.
 
 | # | Art style | After |
 |---|---|---|
@@ -59,7 +60,8 @@ Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/ar
 | 48 | Patch | an embroidered patch on denim |
 | 49 | Liquid Chrome | millennium chrome posters: a sky-and-desert reflection, a neon grid floor, a wireframe globe, a bubbly chrome wordmark |
 | 50 | Media Player Skin | Winamp-era player skins: brushed silver, an LCD marquee, a spectrum analyser that jumps when Clawd dances |
-| 51 | Holo Sticker | a holographic foil sticker on a glittery flip phone, its rainbow sliding as Clawd turns |
+| 51 | Holo Sticker | a holographic foil sticker on pink glitter among a mess of other stickers, its rainbow sliding as Clawd turns |
+| 52 | Vista | the Windows Vista desktop: Aurora wallpaper, Aero glass, sidebar gadgets and a black glass taskbar; Clawd is a glossy Explorer icon with a reflection, and spinning or dancing makes the window go "Not Responding" |
 
 ## Running it
 

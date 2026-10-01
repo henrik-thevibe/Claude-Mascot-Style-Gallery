@@ -1,7 +1,8 @@
-/* Clawd in Fifty-One Styles — henrik-styles.js
+/* Clawd in Fifty-Two Styles — henrik-styles.js
    Styles 21–29: Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd.
    Styles 30–48: after the plates of “Superman in Flight”, nineteen looks from tomb plaster to embroidery.
    Styles 49–51: a Y2K trio, liquid chrome, a media player skin and a holo foil sticker.
+   Style 52: the Windows Vista desktop, Aero glass and all.
    Only the look is carried over.
    Same contract as every other style: CM.style({ id, n, title, caption, init(env), draw(g, env, rig, state) }),
    drawing into a virtual 400×400 tile. Load after core.js and before page.js. */
@@ -2173,6 +2174,173 @@ CM.style({
     CM.drawEyes(g, M, { color: '#2a1240', glint: '#ffffff' });
     CM.drawStars(g, M, true, { fill: '#fff59a', ink: '#c2368a' });
     CM.drawZzz(g, M, { color: '#ffffff', font: CM.FONT.sans });
+  },
+});
+}
+
+/* ═════════ 52 · Vista (Aero glass, 2007) ═════════ */
+{
+const UI = '"Segoe UI","Tahoma",' + CM.FONT.grotesk;
+const P = { top: '#ffb98f', front: '#f27a45', side: '#c4532a', leg: '#e2683a', legDark: '#a8461f' };
+const WIN = [12, 20, 318, 358], CONT = [20, 68, 310, 350], TASK = 372;
+const rr = (g, x0, y0, x1, y1, r) => { g.beginPath(); g.roundRect(x0, y0, x1 - x0, y1 - y0, r); };
+/* the Aurora wallpaper: deep teal with swooshes of green and white light */
+function aurora(g) {
+  let G = g.createLinearGradient(0, 0, 400, 400); G.addColorStop(0, '#0d5560'); G.addColorStop(.5, '#0f6f66'); G.addColorStop(1, '#05252f'); g.fillStyle = G; g.fillRect(0, 0, 400, 400);
+  G = g.createRadialGradient(60, 330, 0, 60, 330, 260); G.addColorStop(0, 'rgba(150,230,60,.55)'); G.addColorStop(1, 'rgba(150,230,60,0)'); g.fillStyle = G; g.fillRect(0, 0, 400, 400);
+  G = g.createRadialGradient(330, 60, 0, 330, 60, 220); G.addColorStop(0, 'rgba(60,200,220,.45)'); G.addColorStop(1, 'rgba(60,200,220,0)'); g.fillStyle = G; g.fillRect(0, 0, 400, 400);
+  g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+  for (const [x0, y0, cx, cy, x1, y1, w, c, b] of [
+    [-40, 140, 120, 260, 420, 300, 40, 'rgba(110,220,80,.35)', 14], [-40, 200, 160, 300, 430, 260, 16, 'rgba(200,255,150,.5)', 6],
+    [-20, 330, 200, 250, 420, 380, 30, 'rgba(90,210,170,.3)', 12], [40, -20, 120, 160, 430, 230, 10, 'rgba(255,255,255,.45)', 4],
+    [-30, 260, 180, 330, 430, 330, 5, 'rgba(255,255,230,.7)', 2], [150, -30, 260, 120, 430, 120, 22, 'rgba(80,190,230,.3)', 10]]) {
+    g.filter = `blur(${b}px)`; g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, cy, x1, y1); g.stroke();
+  }
+  g.restore(); g.filter = 'none';
+}
+/* Aero glass over whatever path is set as the clip: the wallpaper, blurred, tinted and glossed */
+function glass(g, x0, y0, x1, y1, tint = 'rgba(170,215,235,.32)') {
+  g.save(); g.filter = 'blur(7px)'; aurora(g); g.restore();
+  g.fillStyle = tint; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+  let G = g.createLinearGradient(0, y0, 0, y0 + 40); G.addColorStop(0, 'rgba(255,255,255,.45)'); G.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = G; g.fillRect(x0, y0, x1 - x0, 40);
+  g.fillStyle = 'rgba(255,255,255,.07)'; for (let x = x0 - 200; x < x1; x += 46) { g.beginPath(); g.moveTo(x, y1); g.lineTo(x + 14, y1); g.lineTo(x + 214, y0); g.lineTo(x + 200, y0); g.closePath(); g.fill(); }
+}
+function capButton(g, x0, x1, y0, y1, red) {
+  const G = g.createLinearGradient(0, y0, 0, y1);
+  if (red) { G.addColorStop(0, '#f2a08c'); G.addColorStop(.48, '#d8573e'); G.addColorStop(.52, '#c0391f'); G.addColorStop(1, '#e8804f'); }
+  else { G.addColorStop(0, 'rgba(255,255,255,.65)'); G.addColorStop(.48, 'rgba(210,235,245,.45)'); G.addColorStop(.52, 'rgba(150,190,210,.35)'); G.addColorStop(1, 'rgba(200,235,250,.5)'); }
+  g.fillStyle = G; rr(g, x0, y0, x1, y1, 3); g.fill(); g.strokeStyle = 'rgba(0,20,40,.55)'; g.lineWidth = .8; g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.6)'; rr(g, x0 + 1, y0 + 1, x1 - 1, y1 - 1, 2); g.stroke();
+}
+function navOrb(g, x, y, r, on) {
+  const G = g.createLinearGradient(0, y - r, 0, y + r); G.addColorStop(0, on ? '#9fd4ff' : '#dfe8ee'); G.addColorStop(.5, on ? '#2d7fd6' : '#a9b8c3'); G.addColorStop(1, on ? '#6ec0ff' : '#cdd8df');
+  g.fillStyle = G; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.strokeStyle = 'rgba(0,30,60,.6)'; g.lineWidth = .8; g.stroke();
+  g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(x - r * .45, y); g.lineTo(x + r * .1, y - r * .45); g.lineTo(x + r * .1, y + r * .45); g.closePath(); g.fill(); g.fillRect(x, y - r * .14, r * .45, r * .28);
+}
+/* a Vista folder: a pale teal back, the paper peeking out, a translucent front flap */
+function folder(g, x, y, s, a) {
+  g.save(); g.globalAlpha = a; g.translate(x, y); g.scale(s, s);
+  let G = g.createLinearGradient(0, -20, 0, 20); G.addColorStop(0, '#bfe6e2'); G.addColorStop(1, '#5fa8a8'); g.fillStyle = G;
+  g.beginPath(); g.moveTo(-20, 18); g.lineTo(-20, -18); g.lineTo(-8, -18); g.lineTo(-5, -14); g.lineTo(18, -14); g.lineTo(18, 18); g.closePath(); g.fill();
+  g.fillStyle = '#ffffff'; g.fillRect(-14, -11, 26, 22); g.fillStyle = '#d8e4ec'; for (let k = 0; k < 4; k++) g.fillRect(-11, -7 + k * 4, 20, 1.4);
+  G = g.createLinearGradient(0, -6, 0, 20); G.addColorStop(0, 'rgba(200,240,235,.85)'); G.addColorStop(1, 'rgba(90,170,165,.9)'); g.fillStyle = G;
+  g.beginPath(); g.moveTo(-20, 20); g.lineTo(-16, -4); g.lineTo(22, -4); g.lineTo(18, 20); g.closePath(); g.fill(); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = .8; g.stroke();
+  g.restore();
+}
+function label(g, s, x, y, color = '#1e2a33', size = 9, weight = 400, align = 'center') { g.font = `${weight} ${size}px ${UI}`; g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle'; g.fillText(s, x, y); }
+function plastic(g, M) {
+  paintParts(M, f => {
+    const c = tone(f, P), bb = CM.bbox(f.pts), G = g.createLinearGradient(bb[0], bb[1], bb[0], bb[3]), k = .82 + .25 * f.light;
+    G.addColorStop(0, CM.shade(c, f.name === 'top' ? 1.3 : k * 1.18)); G.addColorStop(.5, CM.shade(c, k)); G.addColorStop(1, CM.shade(c, k * .78));
+    CM.fillPoly(g, f.pts, G);
+  }, pt => strokeEdges(g, pt, 'rgba(90,30,10,.45)', .8));
+}
+const NEWS = ['Clawd waves', 'Mascot hops', 'Crab spotted', 'Spin record!', 'Clawd naps', 'Clawd dances'];
+CM.style({
+  id: 'svista', n: 52, title: 'Vista', caption: 'Aero glass, 2007',
+  init(env) {
+    return { busy: 0, py: null, bg: env.layer(g => {
+      aurora(g);
+      /* the window: a soft shadow, the glass frame, the white Explorer pane */
+      g.save(); g.filter = 'blur(8px)'; g.fillStyle = 'rgba(0,0,0,.5)'; rr(g, WIN[0] + 3, WIN[1] + 6, WIN[2] + 3, WIN[3] + 8, 8); g.fill(); g.restore();
+      g.save(); rr(g, ...WIN, 7); g.clip(); glass(g, ...WIN); g.restore();
+      g.strokeStyle = 'rgba(0,15,30,.7)'; g.lineWidth = 1; rr(g, WIN[0] + .5, WIN[1] + .5, WIN[2] - .5, WIN[3] - .5, 7); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.55)'; rr(g, WIN[0] + 1.5, WIN[1] + 1.5, WIN[2] - 1.5, WIN[3] - 1.5, 6); g.stroke();
+      capButton(g, 236, 258, WIN[1] + 1, WIN[1] + 16, false); capButton(g, 258, 280, WIN[1] + 1, WIN[1] + 16, false); capButton(g, 280, 311, WIN[1] + 1, WIN[1] + 16, true);
+      g.strokeStyle = '#ffffff'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(242, 31); g.lineTo(252, 31); g.rect(264.5, 25, 9, 7); g.moveTo(291.5, 24.5); g.lineTo(299.5, 31.5); g.moveTo(299.5, 24.5); g.lineTo(291.5, 31.5); g.stroke();
+      /* navigation: back and forward orbs, the breadcrumb bar, search */
+      navOrb(g, 32, 52, 10, true); g.save(); g.translate(56, 52); g.scale(-1, 1); navOrb(g, 0, 0, 8, false); g.restore();
+      g.fillStyle = 'rgba(255,255,255,.75)'; rr(g, 70, 43, 236, 61, 2); g.fill(); g.strokeStyle = 'rgba(0,30,50,.5)'; g.lineWidth = .8; g.stroke();
+      folder(g, 79, 52, .26, 1); label(g, '▸  Clawd  ▸  Clawd Center  ▸', 88, 52.5, '#1e2a33', 9, 400, 'left');
+      g.fillStyle = 'rgba(255,255,255,.75)'; rr(g, 242, 43, 310, 61, 2); g.fill(); g.stroke(); g.font = `italic 400 9px ${UI}`; g.fillStyle = '#7a8a96'; g.textAlign = 'left'; g.fillText('Search', 247, 52.5);
+      g.strokeStyle = '#3a6a9a'; g.lineWidth = 1.3; g.beginPath(); g.arc(298, 50.5, 3.2, 0, TAU); g.moveTo(300.3, 52.8); g.lineTo(303.5, 56); g.stroke();
+      /* the Explorer pane: command bar, white icon view, details pane */
+      g.fillStyle = '#ffffff'; g.fillRect(CONT[0], CONT[1], CONT[2] - CONT[0], CONT[3] - CONT[1]);
+      let G = g.createLinearGradient(0, CONT[1], 0, CONT[1] + 20); G.addColorStop(0, '#3c6f8e'); G.addColorStop(.5, '#1d4a66'); G.addColorStop(1, '#0f3550');
+      g.fillStyle = G; g.fillRect(CONT[0], CONT[1], CONT[2] - CONT[0], 20); g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(CONT[0], CONT[1], CONT[2] - CONT[0], 1);
+      [['Organize ▾', 28], ['Views ▾', 86], ['Open', 134], ['Share ▾', 170]].forEach(([s, x]) => label(g, s, x, CONT[1] + 10.5, '#ffffff', 9, 400, 'left'));
+      G = g.createLinearGradient(0, 316, 0, CONT[3]); G.addColorStop(0, '#f4f9fc'); G.addColorStop(1, '#cfe3ef'); g.fillStyle = G; g.fillRect(CONT[0], 316, CONT[2] - CONT[0], CONT[3] - 316);
+      g.fillStyle = '#b9d2e2'; g.fillRect(CONT[0], 316, CONT[2] - CONT[0], 1);
+      g.fillStyle = '#e07a52'; rr(g, 30, 322, 52, 344, 4); g.fill(); g.fillStyle = '#1f1412'; g.fillRect(36, 329, 2.5, 5); g.fillRect(44, 329, 2.5, 5);
+      label(g, 'Clawd', 60, 327, '#1e2a33', 10, 700, 'left'); label(g, 'Mascot   Date modified: 1/30/2007 11:03 PM', 60, 340, '#4a5a66', 8, 400, 'left');
+      /* the other icons, unselected */
+      folder(g, 54, 140, 1, .85); label(g, 'Documents', 54, 172); folder(g, 54, 236, 1, .85); label(g, 'Pictures', 54, 268);
+      folder(g, 276, 140, 1, .85); label(g, 'Music', 276, 172); folder(g, 276, 236, 1, .85); label(g, 'Saved Games', 276, 268);
+      /* the sidebar: a clock, a feed and a CPU meter, each in its gadget frame */
+      G = g.createLinearGradient(326, 0, 400, 0); G.addColorStop(0, 'rgba(0,0,0,0)'); G.addColorStop(1, 'rgba(0,0,0,.25)'); g.fillStyle = G; g.fillRect(322, 0, 78, TASK);
+      g.save(); g.filter = 'blur(3px)'; g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.arc(362, 58, 31, 0, TAU); g.fill(); g.restore();
+      G = g.createRadialGradient(356, 50, 2, 360, 56, 32); G.addColorStop(0, '#ffffff'); G.addColorStop(.8, '#e8ecef'); G.addColorStop(1, '#9aa3aa'); g.fillStyle = G; g.beginPath(); g.arc(360, 56, 30, 0, TAU); g.fill();
+      g.lineWidth = 3; g.strokeStyle = '#2a2f33'; g.stroke(); g.lineWidth = 1; g.strokeStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(360, 56, 27.5, 0, TAU); g.stroke();
+      for (let k = 0; k < 12; k++) { const a = k * TAU / 12; g.strokeStyle = '#2a2f33'; g.lineWidth = k % 3 ? .8 : 1.8; g.beginPath(); g.moveTo(360 + cos(a) * 22, 56 + sin(a) * 22); g.lineTo(360 + cos(a) * 26, 56 + sin(a) * 26); g.stroke(); }
+      for (const [x, y] of [[328, 100], [328, 226]]) { G = g.createLinearGradient(0, y, 0, y + (y === 100 ? 118 : 60)); G.addColorStop(0, 'rgba(40,48,58,.92)'); G.addColorStop(1, 'rgba(10,14,20,.92)'); g.fillStyle = G; rr(g, x, y, 394, y + (y === 100 ? 118 : 60), 5); g.fill(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; g.stroke(); }
+      label(g, '◂   1–3   ▸', 361, 209, '#c8d2da', 8);
+      /* CPU meter dials */
+      for (const x of [347, 375]) { g.strokeStyle = '#59636d'; g.lineWidth = 4; g.beginPath(); g.arc(x, 258, 11, PI, TAU); g.stroke(); g.strokeStyle = '#e8473a'; g.beginPath(); g.arc(x, 258, 11, PI * 1.75, TAU); g.stroke(); }
+      label(g, 'CPU', 347, 272, '#c8d2da', 7, 700); label(g, 'RAM', 375, 272, '#c8d2da', 7, 700);
+      /* the taskbar: black glass, an orb with Clawd in it, the active window and the tray */
+      G = g.createLinearGradient(0, TASK, 0, 400); G.addColorStop(0, 'rgba(70,80,90,.95)'); G.addColorStop(.45, 'rgba(20,24,28,.97)'); G.addColorStop(1, 'rgba(0,0,0,.98)');
+      g.fillStyle = G; g.fillRect(0, TASK, 400, 28); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, TASK, 400, 1);
+      G = g.createRadialGradient(22, 382, 2, 24, 386, 17); G.addColorStop(0, '#5ab0ff'); G.addColorStop(.6, '#0d3f7a'); G.addColorStop(1, '#061a33'); g.fillStyle = G; g.beginPath(); g.arc(24, 386, 15, 0, TAU); g.fill();
+      g.strokeStyle = 'rgba(160,210,255,.8)'; g.lineWidth = 1.2; g.stroke();
+      g.fillStyle = '#e07a52'; g.fillRect(17, 381, 14, 9); g.fillRect(14, 384, 3, 3); g.fillRect(31, 384, 3, 3); for (const x of [18, 21, 26, 29]) g.fillRect(x, 390, 1.6, 3); g.fillStyle = '#1f1412'; g.fillRect(20, 383, 1.6, 3); g.fillRect(26.5, 383, 1.6, 3);
+      G = g.createLinearGradient(0, 377, 0, 395); G.addColorStop(0, 'rgba(255,255,255,.35)'); G.addColorStop(.5, 'rgba(255,255,255,.12)'); G.addColorStop(1, 'rgba(255,255,255,.2)');
+      g.fillStyle = G; rr(g, 48, 377, 162, 395, 3); g.fill(); g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = .8; g.stroke();
+      folder(g, 58, 386, .3, 1); label(g, 'Clawd Center', 68, 386.5, '#ffffff', 9, 400, 'left');
+      for (const [x, c] of [[312, '#7ad0ff'], [324, '#9be05a'], [336, '#ffffff']]) { g.fillStyle = c; rr(g, x, 382, x + 8, 390, 1.5); g.fill(); }
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, dt = env.dt || 1 / 60;
+    /* “Not Responding”: a fast spin, a dance or a dizzy spell freezes the window */
+    const vy = S.py == null ? 0 : abs(p.yaw - S.py) / dt; S.py = p.yaw;
+    const want = vy > 4 || p.stride > .3 || p.dizzy > .3 ? 1 : 0; S.busy += (want - S.busy) * min(1, dt * (want ? 6 : 1.5));
+    const M = CM.build(p, { cx: 165, cy: 186, s: 8 }), floorY = max(...CM.build(Object.assign({}, p, { hop: 0 }), { cx: 165, cy: 186, s: 8 }).feet.map(q => q[1]));
+    env.stamp(g, S.bg);
+    /* the selected icon: a pale blue tile behind Clawd, his reflection on the white below */
+    g.save(); g.beginPath(); g.rect(CONT[0], CONT[1] + 20, CONT[2] - CONT[0], 316 - CONT[1] - 20); g.clip();
+    let G = g.createLinearGradient(0, 96, 0, 300); G.addColorStop(0, 'rgba(225,242,252,.9)'); G.addColorStop(1, 'rgba(196,226,246,.9)');
+    g.fillStyle = G; rr(g, 98, 96, 232, 300, 5); g.fill(); g.strokeStyle = 'rgba(120,180,225,.9)'; g.lineWidth = 1; g.stroke();
+    g.save(); rr(g, 99, floorY, 231, 299, 4); g.clip(); g.translate(0, 2 * floorY); g.scale(1, -1); g.globalAlpha = .3; plastic(g, M); g.restore();
+    G = g.createLinearGradient(0, floorY, 0, floorY + 30); G.addColorStop(0, 'rgba(210,233,248,.15)'); G.addColorStop(1, 'rgba(204,229,247,1)'); g.fillStyle = G; g.fillRect(99, floorY, 132, 300 - floorY - 1);
+    CM.drawStars(g, M, false, { fill: '#ffe27a', ink: '#5a3a10' });
+    contour(g, M, 'rgba(90,30,10,.6)', 1);
+    plastic(g, M);
+    CM.drawEyes(g, M, { color: '#1f1412', glint: '#ffffff' });
+    /* a glossy highlight on the body, like every 256px icon of the day */
+    const bb = CM.bbox(M.parts.body.hull); G = g.createLinearGradient(0, bb[1], 0, bb[1] + (bb[3] - bb[1]) * .5); G.addColorStop(0, 'rgba(255,255,255,.4)'); G.addColorStop(1, 'rgba(255,255,255,0)');
+    g.save(); g.beginPath(); CM.path(g, M.parts.body.hull, true); g.clip(); g.fillStyle = G; g.fillRect(bb[0], bb[1], bb[2] - bb[0], (bb[3] - bb[1]) * .5); g.restore();
+    CM.drawStars(g, M, true, { fill: '#ffe27a', ink: '#5a3a10' });
+    CM.drawZzz(g, M, { color: '#2d6fa8', font: UI });
+    g.restore();
+    label(g, 'Clawd', 165, 290, '#1e2a33', 9);
+    /* frozen: the window frosts over, the title admits it, the busy ring spins */
+    if (S.busy > .01) {
+      g.fillStyle = `rgba(255,255,255,${(.5 * S.busy).toFixed(3)})`; rr(g, ...WIN, 7); g.fill();
+      g.globalAlpha = S.busy; label(g, 'Clawd Center (Not Responding)', WIN[0] + 10, WIN[1] + 9, '#0d1a24', 9, 400, 'left');
+      const cx = 250, cy = 120; g.lineWidth = 4; g.lineCap = 'round';
+      for (let k = 0; k < 10; k++) { g.strokeStyle = `rgba(40,140,230,${(.1 + k * .09).toFixed(3)})`; const a = t * 7 + k * .32; g.beginPath(); g.arc(cx, cy, 9, a, a + .3); g.stroke(); }
+      g.globalAlpha = 1;
+    }
+    /* clock gadget hands */
+    const sec = (t * 1) % 60, mins = 3 + t / 60, hrs = 11 + mins / 60;
+    for (const [a, len, w, c] of [[hrs / 12, 13, 2.6, '#1d2226'], [mins / 60, 20, 1.8, '#1d2226'], [sec / 60, 22, .9, '#c7261c']]) {
+      const ang = a * TAU - PI / 2; g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(360 - cos(ang) * 4, 56 - sin(ang) * 4); g.lineTo(360 + cos(ang) * len, 56 + sin(ang) * len); g.stroke();
+    }
+    g.fillStyle = '#c7261c'; g.beginPath(); g.arc(360, 56, 2, 0, TAU); g.fill();
+    /* feed gadget: three headlines, moving on every few seconds */
+    const step = floor(t / 3);
+    for (let k = 0; k < 3; k++) {
+      const y = 106 + k * 32, s = NEWS[(step + k) % NEWS.length];
+      g.fillStyle = 'rgba(255,255,255,.08)'; rr(g, 332, y, 390, y + 28, 3); g.fill();
+      g.save(); g.beginPath(); g.rect(334, y, 54, 28); g.clip(); label(g, s, 335, y + 9, '#ffffff', 8, 700, 'left'); g.restore();
+      label(g, 'CLAWD NEWS', 335, y + 20, '#8d9aa5', 6.5, 400, 'left');
+    }
+    /* CPU meter: the needle pins when the window hangs */
+    const cpu = CM.clamp(.18 + .08 * CM.noise1(t * 2, 52) + .8 * S.busy, 0, 1), ram = .42 + .03 * sin(t);
+    for (const [x, v] of [[347, cpu], [375, ram]]) { const a = PI + v * PI; g.strokeStyle = '#ffffff'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x, 258); g.lineTo(x + cos(a) * 10, 258 + sin(a) * 10); g.stroke(); }
+    label(g, round(cpu * 100) + '%', 347, 238, '#ffffff', 7, 700); label(g, round(ram * 100) + '%', 375, 238, '#ffffff', 7, 700);
+    /* tray clock */
+    label(g, '11:0' + (3 + floor(t / 60)) % 10 + ' PM', 392, 386.5, '#ffffff', 8.5, 400, 'right');
   },
 });
 }
