@@ -1,5 +1,6 @@
-/* Clawd in Twenty-Nine Styles — henrik-styles.js
+/* Clawd in Forty-Eight Styles — henrik-styles.js
    Styles 21–29: Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd.
+   Styles 30–48: after the plates of “Superman in Flight”, nineteen looks from tomb plaster to embroidery.
    Only the look is carried over.
    Same contract as every other style: CM.style({ id, n, title, caption, init(env), draw(g, env, rig, state) }),
    drawing into a virtual 400×400 tile. Load after core.js and before page.js. */
@@ -692,6 +693,1113 @@ CM.style({
     g.restore();
     bubbles(g, S, t, false);
     zs(g, M);
+  },
+});
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   30–48 · after the plates of “Superman in Flight”: a film that carries one hero
+   through twenty plates of art history. Nineteen of those looks, re-drawn around Clawd.
+   ═════════════════════════════════════════════════════════════════════════════ */
+const { sqrt, atan2 } = Math;
+/* the face colour in a palette {top, front, side, leg, legDark} */
+function tone(f, P) { return f.part[0] === 'l' ? (f.name === 'front' ? P.leg : P.legDark) : f.name === 'top' ? P.top : f.name === 'front' ? P.front : P.side; }
+/* one readback at init: a cols×rows on/off grid of whatever fn draws (lettering, motifs) */
+function mask(cols, rows, fn) {
+  const L = CM.canvas(cols, rows); fn(L.g, cols, rows);
+  const d = L.g.getImageData(0, 0, cols, rows).data, out = new Uint8Array(cols * rows);
+  for (let k = 0; k < out.length; k++) out[k] = d[k * 4 + 3] > 110 ? 1 : 0;
+  return out;
+}
+/* paper, plaster, linen: a flat ground, soft blotches from a low-res fbm field, and a scatter of grain */
+function ground(g, base, blot, seed, o = {}) {
+  g.fillStyle = base; g.fillRect(0, 0, 400, 400);
+  const n = 64, L = CM.canvas(n, n), id = L.g.createImageData(n, n), B = CM.hex2rgb(blot), amt = o.amt == null ? .22 : o.amt;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const v = CM.fbm2(i / 14, j / 14, seed, 4), k = (j * n + i) * 4;
+    id.data[k] = B[0]; id.data[k + 1] = B[1]; id.data[k + 2] = B[2]; id.data[k + 3] = max(0, v + .15) * amt * 255;
+  }
+  L.g.putImageData(id, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(L.c, 0, 0, 400, 400);
+  if (o.grain !== 0) { const r = CM.RNG(seed + 7); g.fillStyle = CM.alpha(blot, o.grainA || .18); for (let i = 0; i < (o.grain || 2600); i++) g.fillRect(r() * 400, r() * 400, r.range(.4, 1.3), r.range(.4, 1.3)); }
+}
+/* edges worth inking: silhouettes and creases, never hidden ones or the seams where a limb is glued on */
+const inkEdges = M => M.edges.filter(e => e.kind !== 'hidden' && !e.attached);
+function strokeEdges(g, M, color, lw) { g.strokeStyle = color; g.lineWidth = lw; g.lineCap = 'round'; g.beginPath(); for (const e of inkEdges(M)) { g.moveTo(e.a[0], e.a[1]); g.lineTo(e.b[0], e.b[1]); } g.stroke(); }
+/* a 3×5 pixel font (sampler stitches, handheld LCD): five rows of three bits per glyph */
+const PIX = { A: '25755', B: '65656', C: '34443', D: '65556', E: '74647', F: '74644', G: '34553', H: '55755', I: '72227', J: '11152', K: '55655', L: '44447', M: '57755',
+  N: '65555', O: '25552', P: '65644', Q: '25573', R: '65655', S: '34216', T: '72222', U: '55557', V: '55552', W: '55775', X: '55255', Y: '55222', Z: '71247',
+  0: '75557', 1: '26227', 2: '61247', 3: '61216', 4: '55711', 5: '74616', 6: '34757', 7: '71122', 8: '75757', 9: '75716',
+  '~': '03600', '/': '11244', '♥': '57720', x: '05250', '.': '00002', '·': '00200', ':': '02020', '-': '00700', '!': '22202', '$': '36236', ' ': '00000' };
+/* calls dot(x, y) for every lit pixel of str set at (x, y); returns the width in pixels */
+function pixText(str, x, y, dot) {
+  let cx = x;
+  for (const ch of str) { const G = PIX[ch] || PIX[' ']; for (let r = 0; r < 5; r++) { const b = +G[r]; for (let c = 0; c < 3; c++) if (b >> (2 - c) & 1) dot(cx + c, y + r); } cx += 4; }
+  return cx - x - 1;
+}
+
+/* ═════════ 30 · Tomb painting (Thebes, c. 1300 BC) ═════════ */
+{
+const P = { wall: '#dcbf86', blot: '#a07843', ink: '#2b1b12', red: '#b5432a', blue: '#2f5f9e', green: '#3d7c58', gold: '#d8a630', linen: '#f1ead6',
+  top: '#e39468', front: '#c25a3b', side: '#9b432c', leg: '#b9533a', legDark: '#8c3b27' };
+const BAND = [P.red, P.blue, P.green, P.gold];
+/* hieroglyphs, each centred on (x, y) in a cell of size s */
+const HIERO = {
+  sun(g, x, y, s) { g.strokeStyle = P.red; g.lineWidth = s * .09; g.beginPath(); g.arc(x, y, s * .3, 0, TAU); g.stroke(); g.fillStyle = P.red; g.beginPath(); g.arc(x, y, s * .08, 0, TAU); g.fill(); },
+  ankh(g, x, y, s) { g.strokeStyle = P.blue; g.lineWidth = s * .1; g.lineCap = 'round'; g.beginPath(); g.ellipse(x, y - s * .22, s * .12, s * .16, 0, 0, TAU); g.moveTo(x - s * .26, y); g.lineTo(x + s * .26, y); g.moveTo(x, y - s * .06); g.lineTo(x, y + s * .4); g.stroke(); },
+  water(g, x, y, s) { g.strokeStyle = P.blue; g.lineWidth = s * .08; g.lineJoin = 'miter'; for (const dy of [-.1, .12]) { g.beginPath(); for (let k = 0; k <= 6; k++) g.lineTo(x - s * .36 + k * s * .12, y + dy * s + (k & 1 ? -1 : 1) * s * .06); g.stroke(); } },
+  feather(g, x, y, s) { g.fillStyle = P.green; g.beginPath(); g.moveTo(x, y + s * .42); g.quadraticCurveTo(x - s * .24, y - s * .1, x + s * .05, y - s * .42); g.quadraticCurveTo(x + s * .18, y, x, y + s * .42); g.fill(); },
+  bread(g, x, y, s) { g.fillStyle = P.blue; g.beginPath(); g.arc(x, y + s * .14, s * .26, PI, 0); g.closePath(); g.fill(); },
+  eye(g, x, y, s) {
+    g.strokeStyle = P.ink; g.lineWidth = s * .07; g.beginPath(); g.moveTo(x - s * .34, y); g.quadraticCurveTo(x, y - s * .24, x + s * .3, y); g.quadraticCurveTo(x, y + s * .18, x - s * .34, y); g.stroke();
+    g.fillStyle = P.ink; g.beginPath(); g.arc(x, y - s * .02, s * .08, 0, TAU); g.fill(); g.beginPath(); g.moveTo(x - s * .05, y + s * .1); g.lineTo(x - s * .1, y + s * .34); g.stroke();
+  },
+  reed(g, x, y, s) { g.strokeStyle = P.green; g.lineWidth = s * .08; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y + s * .4); g.lineTo(x, y - s * .38); g.moveTo(x, y - s * .1); g.quadraticCurveTo(x + s * .24, y - s * .24, x + s * .2, y - s * .44); g.stroke(); },
+  snake(g, x, y, s) { g.strokeStyle = P.ink; g.lineWidth = s * .09; g.lineCap = 'round'; g.beginPath(); g.moveTo(x - s * .34, y + s * .2); g.bezierCurveTo(x - s * .1, y - s * .2, x + s * .1, y + s * .3, x + s * .3, y - s * .1); g.lineTo(x + s * .34, y - s * .26); g.stroke(); },
+};
+CM.style({
+  id: 'stomb', n: 30, title: 'Tomb Painting', caption: 'Thebes, c. 1300 BC',
+  init(env) {
+    return { bg: env.layer(g => {
+      ground(g, P.wall, P.blot, 30, { amt: .34 });
+      /* a border of painted squares, then the khekher frieze along the top */
+      const B = 10;
+      for (let k = 0; k < 40; k++) for (const [x, y] of [[k * B, 0], [k * B, 400 - B], [0, k * B], [400 - B, k * B]]) { g.fillStyle = BAND[k % 4]; g.fillRect(x, y, B, B); }
+      g.strokeStyle = P.ink; g.lineWidth = 1.4; g.strokeRect(B, B, 400 - 2 * B, 400 - 2 * B);
+      for (let k = 0, x = 16; x < 380; k++, x += 11) {
+        g.fillStyle = BAND[k % 4]; g.beginPath(); g.moveTo(x, 46); g.lineTo(x, 22); g.arc(x + 4, 22, 4, PI, 0); g.lineTo(x + 8, 46); g.closePath(); g.fill();
+        g.strokeStyle = P.ink; g.lineWidth = 1; g.stroke(); g.fillStyle = P.wall; g.fillRect(x + 2.5, 30, 3, 3);
+      }
+      g.fillStyle = P.blue; g.fillRect(B, 48, 400 - 2 * B, 6); g.fillStyle = P.ink; g.fillRect(B, 54, 400 - 2 * B, 1.5);
+      /* a column of glyphs on the left, a cartouche on the right */
+      g.strokeStyle = P.ink; g.lineWidth = 1.4;
+      for (const x of [24, 70]) { g.beginPath(); g.moveTo(x, 64); g.lineTo(x, 340); g.stroke(); }
+      ['feather', 'sun', 'ankh', 'water', 'snake', 'reed', 'eye', 'bread', 'ankh'].forEach((k, i) => HIERO[k](g, 47, 84 + i * 30, 26));
+      g.strokeStyle = P.ink; g.lineWidth = 2.4; g.beginPath(); g.roundRect(334, 70, 40, 226, 20); g.stroke();
+      g.beginPath(); g.moveTo(328, 304); g.lineTo(380, 304); g.stroke();
+      ['bread', 'water', 'reed', 'eye', 'snake', 'sun'].forEach((k, i) => HIERO[k](g, 354, 96 + i * 35, 28));
+      HIERO.ankh(g, 354, 324, 24);
+      /* the ground line and a few plaster cracks */
+      g.fillStyle = P.ink; g.fillRect(76, 339, 250, 2.6);
+      const r = CM.RNG(301); g.strokeStyle = 'rgba(60,35,15,.4)'; g.lineWidth = .8;
+      for (const [x0, y0] of [[110, 70], [300, 360], [260, 80]]) { let x = x0, y = y0, a = r() * TAU; g.beginPath(); g.moveTo(x, y); for (let i = 0; i < 14; i++) { a += r.gauss() * .5; x += cos(a) * 6; y += sin(a) * 6; g.lineTo(x, y); } g.stroke(); }
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 255, s: 11.2 });
+    env.stamp(g, S.bg);
+    /* the sun disc carried overhead */
+    const hx = M.top[0], hy = M.top[1] - 46 + sin(t * 1.3) * 3;
+    g.fillStyle = P.gold; g.strokeStyle = P.red; g.lineWidth = 3; g.beginPath(); g.arc(hx, hy, 24, 0, TAU); g.fill(); g.stroke();
+    g.strokeStyle = CM.alpha(P.red, .45); g.lineWidth = 1; g.beginPath(); g.arc(hx, hy, 18, 0, TAU); g.stroke();
+    CM.drawStars(g, M, false, { fill: P.gold, ink: P.ink });
+    /* flat earth pigments inside a dark contour, the way the tomb painters filled their outlines */
+    g.lineJoin = 'round'; CM.unionOutline(g, M, 2.2, P.ink, P.front);
+    for (const f of M.faces) CM.fillPoly(g, f.pts, tone(f, P));
+    if (M.frontVis) {
+      /* a pleated linen kilt and a gold belt across the bottom of the front face */
+      const kilt = [M.F(-6, 0), M.F(6, 0), M.F(6, 1.9), M.F(-6, 1.9)];
+      CM.fillPoly(g, kilt, P.linen); g.strokeStyle = CM.alpha(P.ink, .35); g.lineWidth = .8; g.beginPath();
+      for (let x = -5; x <= 5; x += 1.25) { const a = M.F(x, 0), b = M.F(x + .4, 1.9); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } g.stroke();
+      CM.strokePoly(g, [M.F(-6, 1.9), M.F(6, 1.9)], P.gold, 2.4, false);
+    }
+    strokeEdges(g, M, P.ink, 1.2);
+    /* eyes with a kohl line swept out towards the temples */
+    for (const e of M.eyes) if (e.vis && e.poly) {
+      const s = e.size; g.strokeStyle = P.ink; g.lineWidth = max(1.2, s * .2); g.lineCap = 'round';
+      g.beginPath(); g.moveTo(e.c[0] + e.side * s * .45, e.c[1] + s * .25); g.quadraticCurveTo(e.c[0] + e.side * s * 1.2, e.c[1] + s * .4, e.c[0] + e.side * s * 1.5, e.c[1]); g.stroke();
+    }
+    CM.drawEyes(g, M, { color: P.ink, glint: false });
+    CM.drawStars(g, M, true, { fill: P.gold, ink: P.ink });
+    CM.drawZzz(g, M, { color: P.ink });
+  },
+});
+}
+
+/* ═════════ 31 · Mosaic (Pompeii, c. 79 AD) ═════════ */
+{
+const N = 56, T = 400 / N;
+const P = { grout: '#857b69', cream: '#e8dec6', black: '#2c2723', ochre: '#c49a58', red: '#a5452f', sea: '#3b76a6', sea2: '#6ca5c9', foam: '#dbe7ea', fish: '#4b5560',
+  top: '#eaa47e', front: '#cf6a48', side: '#9c4a33', leg: '#bd5d40', legDark: '#8e432e', rim: '#5b2a1e', eye: '#1e1a17' };
+const KEY = ['#######.', '#.....#.', '#.###.#.', '#.#.#.#.', '#.#...#.', '#.#####.'];
+const FISH = ['...##.....', '.#######.#', '##########', '.#######.#', '...#.#....'];
+const BAN = [14, 10, 42, 18];                   // banner cells: x0, y0, x1, y1
+const SEA = 42;                                 // first row of the sea
+/* one tessera: the grid cell, slightly irregular in size and seating, its colour nudged per stone */
+function tess(g, x, y, w, c, i, j, k = 1) {
+  const h = CM.hash2(i, j, 31), h2 = CM.hash2(i, j, 32), h3 = CM.hash2(i, j, 33);
+  g.fillStyle = CM.shade(c, k * (.9 + h3 * .16)); g.fillRect(x + .55 + (h - .5) * .7, y + .55 + (h2 - .5) * .7, w - 1.1 - h2 * .5, w - 1.1 - h * .5);
+}
+function fieldColor(i, j) {
+  const e = min(i, j, N - 1 - i, N - 1 - j);
+  if (e < 2) return P.black;
+  if (e < 8) { const along = e === i || e === N - 1 - i ? j : i, row = e - 2; return KEY[row][along % 8] === '#' ? P.black : P.cream; }
+  if (e === 9) return P.red;
+  if (j >= SEA && e > 9) { if (j === SEA) return P.foam; return ((j * 3 + round(2.2 * sin(i * .45 + j))) % 4 === 0) ? P.sea2 : P.sea; }
+  return CM.hash2(i, j, 5) < .03 ? P.ochre : P.cream;
+}
+CM.style({
+  id: 'smosaic', n: 31, title: 'Mosaic', caption: 'Pompeii, c. 79 AD',
+  init(env) {
+    const col = [];
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) col.push(fieldColor(i, j));
+    /* the banner is laid in half-size stones so its letters read */
+    const bw = (BAN[2] - BAN[0] + 1) * 2, bh = (BAN[3] - BAN[1] + 1) * 2;
+    const txt = mask(bw, bh, (g, w, h) => { g.fillStyle = '#000'; g.font = `700 ${h * .62}px ${CM.FONT.caslon}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CLAVDIVS', w / 2, h / 2 + 1); });
+    const bg = env.layer(g => {
+      g.fillStyle = P.grout; g.fillRect(0, 0, 400, 400);
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        if (i >= BAN[0] && i <= BAN[2] && j >= BAN[1] && j <= BAN[3]) continue;
+        tess(g, i * T, j * T, T, col[j * N + i], i, j);
+      }
+      for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
+        const edge = i < 2 || j < 2 || i >= bw - 2 || j >= bh - 2;
+        tess(g, BAN[0] * T + i * T / 2, BAN[1] * T + j * T / 2, T / 2, edge || txt[j * bw + i] ? P.black : P.cream, i + 99, j);
+      }
+    });
+    return { bg, col };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 236, s: 12 }), G = cells(M, N, N, [0, 0, 400, 400]), { C } = G;
+    env.stamp(g, S.bg);
+    /* a fish crossing the sea, one stone at a time */
+    const fx = floor(t * 2.4) % (N + 14) - 12, fy = SEA + 2;
+    FISH.forEach((row, r) => { for (let c = 0; c < row.length; c++) if (row[c] === '#') { const i = fx + row.length - 1 - c, j = fy + r; if (i > 9 && i < N - 10 && j < N - 10) tess(g, i * T, j * T, T, P.fish, i, j); } });
+    /* the shadow: darker stones of the floor under the feet */
+    const sb = CM.bbox(M.shadow);
+    for (let j = max(0, floor(sb[1] / T)); j <= min(N - 1, floor(sb[3] / T)); j++) for (let i = max(0, floor(sb[0] / T)); i <= min(N - 1, floor(sb[2] / T)); i++)
+      if (!C[j * N + i] && CM.inPoly((i + .5) * T, (j + .5) * T, M.shadow)) { g.fillStyle = P.grout; g.fillRect(i * T, j * T, T, T); tess(g, i * T, j * T, T, S.col[j * N + i], i, j, .72); }
+    /* Clawd, outlined in a single row of dark stones (opus vermiculatum) */
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const c = C[j * N + i]; if (!c) continue;
+      g.fillStyle = P.grout; g.fillRect(i * T, j * T, T, T);
+      tess(g, i * T, j * T, T, c.eye ? P.eye : c.rim ? P.rim : tone(c.f, P), i, j, c.eye || c.rim ? 1 : min(1.08, .86 + .26 * c.f.light));
+    }
+    CM.drawStars(g, M, true, { fill: P.ochre, ink: P.black });
+    CM.drawZzz(g, M, { color: P.black });
+  },
+});
+}
+
+/* ═════════ 32 · Stained glass (Gothic lancet, c. 1220) ═════════ */
+{
+const LEAD = '#151317';
+const GL = { top: '#f3a15e', front: '#e0632f', side: '#a63422', leg: '#c9532a', legDark: '#8e2c1d' };
+/* a pointed (drop) arch: sides are arcs of radius r centred on the opposite side's springing */
+function lancet(xL, xR, ys, yb, r) {
+  const c = xL + r, m = (xL + xR) / 2, dy = sqrt(r * r - (c - m) ** 2), a1 = atan2(-dy, m - c) + TAU, L = [];
+  for (let k = 0; k <= 18; k++) { const a = PI + (a1 - PI) * k / 18; L.push([c + r * cos(a), ys + r * sin(a)]); }
+  return [[xL, yb], ...L, ...L.slice(0, -1).reverse().map(q => [xL + xR - q[0], q[1]]), [xR, yb]];
+}
+/* keep the part of poly nearer to a than to b */
+function clipHalf(poly, a, b) {
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, nx = b[0] - a[0], ny = b[1] - a[1], out = [], side = q => (q[0] - mx) * nx + (q[1] - my) * ny;
+  for (let i = 0; i < poly.length; i++) {
+    const P0 = poly[i], P1 = poly[(i + 1) % poly.length], s0 = side(P0), s1 = side(P1);
+    if (s0 <= 0) out.push(P0);
+    if ((s0 <= 0) !== (s1 <= 0)) { const k = s0 / (s0 - s1); out.push([P0[0] + (P1[0] - P0[0]) * k, P0[1] + (P1[1] - P0[1]) * k]); }
+  }
+  return out;
+}
+const voronoi = (pts, box) => pts.map((a, i) => { let poly = box; for (let j = 0; j < pts.length && poly.length > 2; j++) if (j !== i) poly = clipHalf(poly, a, pts[j]); return poly; });
+const WIN = lancet(72, 328, 196, 374, 158), GLASS = lancet(84, 316, 196, 362, 146);
+CM.style({
+  id: 'sglass', n: 32, title: 'Stained Glass', caption: 'Gothic lancet, c. 1220',
+  init(env) {
+    const r = CM.RNG(32), seeds = [];
+    for (let j = 0; j < 12; j++) for (let i = 0; i < 8; i++) seeds.push([84 + (i + .5 + r.range(-.4, .4)) * 29, 40 + (j + .5 + r.range(-.4, .4)) * 27]);
+    const panes = voronoi(seeds, [[84, 30], [316, 30], [316, 362], [84, 362]]);
+    return { bg: env.layer(g => {
+      /* ashlar wall */
+      g.fillStyle = '#1e1d21'; g.fillRect(0, 0, 400, 400);
+      for (let j = 0, y = 0; y < 400; j++, y += 28) for (let x = -(j % 2) * 30; x < 400; x += 60) { g.fillStyle = CM.mix('#33323a', '#46454c', r()); g.fillRect(x + 1.5, y + 1.5, 57, 25); }
+      /* the frame, then the pieces of glass and their lead */
+      CM.fillPoly(g, WIN, '#7c1a26'); CM.strokePoly(g, WIN, LEAD, 3);
+      g.save(); g.beginPath(); CM.path(g, GLASS); g.clip();
+      panes.forEach((q, i) => {
+        if (q.length < 3) return; const cy = CM.centroid(q)[1], k = r();
+        g.fillStyle = cy > 318 ? hsl(130 + k * 20, 45, 26 + k * 10) : k < .06 ? hsl(352, 70, 34) : k < .1 ? hsl(44, 80, 52) : hsl(218 + r() * 14, 72, 26 + r() * 18);
+        g.beginPath(); CM.path(g, q); g.fill();
+      });
+      const glow = g.createRadialGradient(200, 200, 10, 200, 210, 210); glow.addColorStop(0, 'rgba(255,250,235,.28)'); glow.addColorStop(1, 'rgba(255,250,235,0)');
+      g.fillStyle = glow; g.fillRect(0, 0, 400, 400);
+      g.strokeStyle = LEAD; g.lineWidth = 2.4; g.lineJoin = 'round'; for (const q of panes) if (q.length > 2) { g.beginPath(); CM.path(g, q); g.stroke(); }
+      /* the inscription band */
+      g.fillStyle = '#4c2a6c'; g.fillRect(84, 330, 232, 32); g.strokeStyle = LEAD; g.lineWidth = 3; g.strokeRect(84, 330, 232, 32);
+      g.fillStyle = '#f4e7c8'; g.font = `600 16px ${CM.FONT.caslon}`; g.textBaseline = 'middle'; CM.spaced(g, 'SCS · CLAVDIVS', 200, 347, 3.5);
+      g.restore();
+      CM.strokePoly(g, GLASS, LEAD, 3.4);
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 236, s: 10.6 });
+    env.stamp(g, S.bg);
+    g.save(); g.beginPath(); CM.path(g, GLASS); g.clip();
+    CM.drawStars(g, M, false, { fill: '#f4c542', ink: LEAD });
+    g.lineJoin = 'round'; CM.unionOutline(g, M, 2.6, LEAD, GL.front);
+    /* every face is cut into a few pieces of glass, each its own shade, each leaded */
+    for (const f of M.faces) {
+      const leg = f.part[0] === 'l', nu = leg || f.part[0] === 'a' ? 1 : 2, nw = f.name === 'front' && !leg ? 2 : 1, base = tone(f, GL), sd = f.part.length * 7 + f.name.length;
+      const cu = [0, .5 + (CM.hash(sd) - .5) * .2, 1], cw = [0, .5 + (CM.hash(sd + 1) - .5) * .2, 1];
+      for (let a = 0; a < nu; a++) for (let b = 0; b < nw; b++) {
+        const u0 = nu === 1 ? 0 : cu[a], u1 = nu === 1 ? 1 : cu[a + 1], w0 = nw === 1 ? 0 : cw[b], w1 = nw === 1 ? 1 : cw[b + 1];
+        const q = [f.at(u0, w0), f.at(u1, w0), f.at(u1, w1), f.at(u0, w1)], h = CM.hash2(a + b * 3, sd, 3);
+        CM.fillPoly(g, q, CM.shade(base, .8 + .32 * f.light + (h - .5) * .22));
+        if (abs(CM.area(q)) > 300) CM.fillPoly(g, CM.offsetPoly(q, 4), 'rgba(255,236,200,.13)');
+        CM.strokePoly(g, q, LEAD, 1.8);
+      }
+    }
+    for (const e of M.eyes) if (e.vis && e.poly) { CM.fillPoly(g, e.poly, '#1d1236'); CM.strokePoly(g, e.poly, LEAD, 1.6); if (e.open > .5) { g.fillStyle = 'rgba(210,225,255,.85)'; g.beginPath(); g.arc(e.glint[0], e.glint[1], e.size * .15, 0, TAU); g.fill(); } }
+    CM.drawEyes(g, M, { color: LEAD, glint: false });
+    CM.drawStars(g, M, true, { fill: '#f4c542', ink: LEAD });
+    /* the iron saddle bars run in front of everything */
+    g.fillStyle = LEAD; for (const y of [146, 270]) g.fillRect(84, y - 1.6, 232, 3.2);
+    /* a passing cloud dims the light now and then */
+    const dim = max(0, CM.noise1(t * .25, 32)) * .22; if (dim > .01) { g.fillStyle = `rgba(10,8,20,${dim.toFixed(3)})`; g.fillRect(0, 0, 400, 400); }
+    g.restore();
+    CM.drawZzz(g, M, { color: '#f4e7c8' });
+  },
+});
+}
+
+/* ═════════ 33 · Illuminated initial (Book of hours, c. 1410) ═════════ */
+{
+const P = { vellum: '#f1e6c8', blot: '#c4a873', ink: '#2a1d14', rubric: '#b22d1f', blue: '#2a49a0', pink: '#d77a88', gold: '#d6a53a', goldD: '#9c7420', white: '#fbf6ea',
+  top: '#f29a6a', front: '#dd5a32', side: '#a8401f', leg: '#c64e2b', legDark: '#93391d' };
+const SERIF = CM.FONT.caslon;
+const TOP = [['uper caelos sedet', 0], ['parvus Clawdius', 0], ['natus in terminali', 0], ['et scribit codicem', 0]];
+const BOT = [['¶ ecce ', 0], ['probationes transeunt', 1], [' · et', 0], ['omnes rident · ', 0], ['Explicit.', 1]];
+function gold(g, x0, y0, x1, y1) { const G = g.createLinearGradient(x0, y0, x1, y1); G.addColorStop(0, '#f4d27a'); G.addColorStop(.5, P.gold); G.addColorStop(1, P.goldD); return G; }
+CM.style({
+  id: 'sinitial', n: 33, title: 'Illuminated Initial', caption: 'Book of hours, c. 1410',
+  init(env) {
+    return { bg: env.layer(g => {
+      ground(g, P.vellum, P.blot, 33, { amt: .3, grainA: .12 });
+      /* ruling */
+      g.strokeStyle = 'rgba(160,120,90,.18)'; g.lineWidth = .6; for (let y = 50; y < 390; y += 22) { g.beginPath(); g.moveTo(30, y); g.lineTo(340, y); g.stroke(); }
+      /* the initial: gold frame, blue diapered ground, a pink letter */
+      g.fillStyle = gold(g, 30, 30, 132, 132); g.fillRect(30, 30, 102, 102);
+      g.fillStyle = P.blue; g.fillRect(37, 37, 88, 88);
+      g.fillStyle = 'rgba(244,210,122,.8)'; for (let y = 43; y < 124; y += 9) for (let x = 43 + (y / 9 % 2) * 4.5; x < 124; x += 9) { g.beginPath(); g.arc(x, y, 1.1, 0, TAU); g.fill(); }
+      g.font = `700 92px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      g.fillStyle = P.pink; g.fillText('S', 81, 116); g.strokeStyle = P.white; g.lineWidth = 1.2; g.strokeText('S', 81, 116);
+      g.strokeStyle = P.goldD; g.lineWidth = 1; g.strokeRect(30, 30, 102, 102);
+      /* text: black with red rubrics */
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.font = `400 18px ${SERIF}`;
+      TOP.forEach(([s], i) => { g.fillStyle = P.ink; g.fillText(s, 144, 58 + i * 22); });
+      g.font = `400 16.5px ${SERIF}`;
+      let x = 34, y = 340;
+      for (const [s, red] of BOT) { g.fillStyle = red ? P.rubric : P.ink; const w = g.measureText(s).width; if (x + w > 336) { x = 34; y += 22; } g.fillText(s, x, y); x += w + (s.endsWith(' ') ? 0 : 4); }
+      g.fillStyle = P.blue; g.fillRect(x + 4, y - 6, 60, 4); g.fillStyle = 'rgba(244,210,122,.9)'; for (let k = 0; k < 10; k++) g.fillRect(x + 6 + k * 6, y - 5, 2, 2);
+      /* the margin bar and its vine of gold ivy */
+      g.fillStyle = gold(g, 354, 0, 362, 0); g.fillRect(354, 30, 7, 350);
+      for (let y2 = 34; y2 < 376; y2 += 26) { g.fillStyle = (y2 / 26 | 0) % 2 ? P.blue : P.pink; g.fillRect(355, y2, 5, 12); }
+      const r = CM.RNG(330);
+      for (let y2 = 44; y2 < 380; y2 += 30) for (const s of [-1, 1]) {
+        const x0 = 357.5, ex = x0 + s * r.range(16, 30), ey = y2 + r.range(-10, 10);
+        g.strokeStyle = P.ink; g.lineWidth = .9; g.beginPath(); g.moveTo(x0, y2); g.quadraticCurveTo(x0 + s * 10, y2 - 14, ex, ey); g.stroke();
+        for (const [lx, ly] of [[ex, ey], [x0 + s * 10, y2 - 9]]) {
+          g.fillStyle = r() < .7 ? gold(g, lx - 4, ly - 4, lx + 4, ly + 4) : P.blue; g.beginPath(); g.moveTo(lx, ly - 5); g.quadraticCurveTo(lx + 5, ly, lx, ly + 4); g.quadraticCurveTo(lx - 5, ly, lx, ly - 5); g.fill();
+          g.strokeStyle = P.ink; g.lineWidth = .5; g.stroke();
+        }
+      }
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 188, cy: 236, s: 9.8 });
+    env.stamp(g, S.bg);
+    CM.drawStars(g, M, false, { fill: P.gold, ink: P.ink });
+    /* bright pigment inside a fine black line, gold leaf on the top faces, lead-white highlights */
+    g.lineJoin = 'round'; CM.unionOutline(g, M, 1.4, P.ink, P.front);
+    for (const f of M.faces) {
+      if (f.name === 'top') { const b = CM.bbox(f.pts); CM.fillPoly(g, f.pts, gold(g, b[0], b[1], b[2], b[3])); continue; }
+      CM.fillPoly(g, f.pts, CM.shade(tone(f, P), .86 + .2 * f.light));
+    }
+    if (M.frontVis) { g.strokeStyle = 'rgba(255,248,232,.7)'; g.lineWidth = 1.4; g.beginPath(); const a = M.F(-5.4, 8.4, .05), b = M.F(5.4, 8.4, .05); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    strokeEdges(g, M, P.ink, .9);
+    CM.drawEyes(g, M, { color: P.ink, glint: P.white });
+    CM.drawStars(g, M, true, { fill: P.gold, ink: P.ink });
+    CM.drawZzz(g, M, { color: P.rubric, font: SERIF });
+  },
+});
+}
+
+/* ═════════ 34 · Proportion study (after Leonardo, c. 1490) ═════════ */
+{
+const P = { paper: '#ece0c4', blot: '#b49564', ink: '#4a2f1c', faint: 'rgba(74,47,28,.35)', wash: 'rgba(196,140,96,.22)' };
+function mirrored(g, str, x, y, size) { g.save(); g.translate(x, y); g.scale(-1, 1); g.font = `italic ${size}px ${CM.FONT.serif}`; g.textAlign = 'center'; g.fillText(str, 0, 0); g.restore(); }
+CM.style({
+  id: 'sprop', n: 34, title: 'Proportion Study', caption: 'After Leonardo, c. 1490',
+  init(env) {
+    return { bg: env.layer(g => {
+      ground(g, P.paper, P.blot, 34, { amt: .42, grainA: .14 });
+      g.fillStyle = P.ink;
+      mirrored(g, 'il granchio del terminale e delle sue misure', 200, 36, 11.5);
+      mirrored(g, 'tanto apre le braccia quanto è la sua altezza', 200, 52, 9);
+      mirrored(g, 'e vola senza ali · più veloce d’una saetta', 200, 376, 9.5);
+      /* circle and square, with their measuring ticks */
+      g.strokeStyle = P.ink; g.lineWidth = 1.3;
+      g.beginPath(); g.arc(200, 210, 142, 0, TAU); g.stroke();
+      g.strokeRect(80, 92, 240, 260);
+      g.lineWidth = .7; g.beginPath();
+      for (let k = 1; k < 8; k++) { const x = 80 + k * 30, y = 92 + k * 32.5; g.moveTo(x, 352); g.lineTo(x, 346); g.moveTo(80, y); g.lineTo(86, y); }
+      g.stroke();
+      /* margin sketches: an eye study and a leg */
+      g.lineWidth = .8; g.beginPath(); g.ellipse(40, 82, 12, 18, 0, 0, TAU); g.stroke(); g.beginPath(); g.ellipse(40, 82, 5, 9, 0, 0, TAU); g.fill();
+      g.beginPath(); g.rect(352, 66, 10, 30); g.moveTo(352, 66); g.lineTo(358, 60); g.lineTo(368, 60); g.lineTo(362, 66); g.moveTo(368, 60); g.lineTo(368, 90); g.lineTo(362, 96); g.stroke();
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 200, cy: 246, s: 13.5 });
+    env.stamp(g, S.bg);
+    /* the second pose, arms flung out, ghosted in behind as Leonardo did */
+    const G = CM.build(Object.assign({}, p, { armL: .95, armR: .95 }), { cx: 200, cy: 246, s: 13.5 });
+    g.strokeStyle = P.faint; g.lineWidth = .9; for (const k of ['armL', 'armR']) CM.strokePoly(g, G.parts[k].hull);
+    /* a pale wash, hatching on the shaded sides, then the pen line */
+    g.fillStyle = P.wash; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+    for (const f of M.faces) {
+      if (f.light > .62) continue;
+      const gap = 2.4 + f.light * 4;
+      CM.hatch(g, f.pts, f.name === 'top' ? -.3 : 1.05, gap, .7, { color: P.ink, wobble: .5, seed: f.part.length, cross: f.light < .25 ? 1.2 : 0 });
+    }
+    g.fillStyle = P.ink;
+    for (const e of inkEdges(M)) CM.ink(g, CM.resample([e.a, e.b], 5), e.kind === 'sil' ? 1.6 : 1, e.a[0] * 3 + e.b[1], { amp: .5 });
+    CM.drawEyes(g, M, { color: P.ink, glint: P.paper, lw: 1.3 });
+    /* the navel of the figure sits at the centre of the circle: a little compass prick */
+    g.beginPath(); g.arc(200, 210, 1.6, 0, TAU); g.fill();
+    CM.drawStars(g, M, true, { fill: 'rgba(0,0,0,0)', ink: P.ink });
+    CM.drawZzz(g, M, { color: P.ink });
+  },
+});
+}
+
+/* ═════════ 35 · Silhouette (cut paper, c. 1790) ═════════ */
+{
+const P = { wall: '#1f3a2c', damask: '#2b4a39', cream: '#f2ead6', cut: '#121110', gold: '#c99a3d', goldL: '#f0d58a', goldD: '#7a5a1c' };
+const O = { cx: 200, cy: 212, rx: 122, ry: 160 };
+function fleur(g, x, y, s) {
+  g.beginPath(); g.ellipse(x, y - s * .35, s * .18, s * .42, 0, 0, TAU);
+  g.ellipse(x - s * .32, y - s * .05, s * .14, s * .32, -.7, 0, TAU); g.ellipse(x + s * .32, y - s * .05, s * .14, s * .32, .7, 0, TAU);
+  g.rect(x - s * .36, y + s * .12, s * .72, s * .1); g.moveTo(x, y + s * .2); g.lineTo(x - s * .12, y + s * .5); g.lineTo(x + s * .12, y + s * .5); g.fill();
+}
+CM.style({
+  id: 'ssil', n: 35, title: 'Silhouette', caption: 'Cut paper, c. 1790',
+  init(env) {
+    return { bg: env.layer(g => {
+      g.fillStyle = P.wall; g.fillRect(0, 0, 400, 400); g.fillStyle = P.damask;
+      for (let j = 0; j < 7; j++) for (let i = -1; i < 7; i++) fleur(g, i * 70 + (j % 2) * 35 + 20, j * 64 + 30, 34);
+      const v = g.createRadialGradient(200, 200, 120, 200, 200, 300); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = v; g.fillRect(0, 0, 400, 400);
+      /* the oval mount, its gilt frame and the ribbon bow */
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(O.cx + 4, O.cy + 6, O.rx + 18, O.ry + 18, 0, 0, TAU); g.fill();
+      const G = g.createLinearGradient(80, 50, 320, 380); G.addColorStop(0, P.goldL); G.addColorStop(.45, P.gold); G.addColorStop(1, P.goldD);
+      g.fillStyle = G; g.beginPath(); g.ellipse(O.cx, O.cy, O.rx + 16, O.ry + 16, 0, 0, TAU); g.fill();
+      g.strokeStyle = P.goldD; g.lineWidth = 1.2; g.stroke();
+      g.fillStyle = P.goldL; for (let k = 0; k < 72; k++) { const a = k / 72 * TAU; g.beginPath(); g.arc(O.cx + cos(a) * (O.rx + 9), O.cy + sin(a) * (O.ry + 9), 1.5, 0, TAU); g.fill(); }
+      g.fillStyle = '#0d0c0b'; g.beginPath(); g.ellipse(O.cx, O.cy, O.rx + 2.5, O.ry + 2.5, 0, 0, TAU); g.fill();
+      const C = g.createRadialGradient(O.cx, O.cy - 30, 20, O.cx, O.cy, O.ry); C.addColorStop(0, '#fbf6e8'); C.addColorStop(1, '#ddd2b6');
+      g.fillStyle = C; g.beginPath(); g.ellipse(O.cx, O.cy, O.rx, O.ry, 0, 0, TAU); g.fill();
+      g.fillStyle = G; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(200 + s * 15, 40, 15, 8, s * .35, 0, TAU); g.fill(); g.stroke(); }
+      g.beginPath(); g.arc(200, 42, 6, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = '#3d3a33'; g.textAlign = 'center'; g.font = `400 18px ${CM.FONT.serif}`; g.fillText('Mr. C. Clawd', 200, 322);
+      g.font = `italic 10px ${CM.FONT.serif}`; g.fillText('taken from the life · 1790', 200, 338);
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 200, cy: 214, s: 10.8 });
+    env.stamp(g, S.bg);
+    g.save(); g.beginPath(); g.ellipse(O.cx, O.cy, O.rx, O.ry, 0, 0, TAU); g.clip();
+    /* black paper, one clean cut, lifted a hair off the card */
+    g.fillStyle = 'rgba(60,45,20,.22)'; g.beginPath(); for (const h of M.hulls) CM.path(g, h.map(q => [q[0] + 2, q[1] + 2.5])); g.fill();
+    g.fillStyle = P.cut; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+    for (const s of M.stars) { const r = 8 * s.k, q = []; for (let i = 0; i < 10; i++) { const a = s.a * 1.7 - PI / 2 + i * PI / 5, d = i & 1 ? r * .45 : r; q.push([s.x + cos(a) * d, s.y + sin(a) * d]); } CM.fillPoly(g, q, P.cut); }
+    /* the eyes are cut clean through the paper */
+    CM.drawEyes(g, M, { color: '#efe6cf', glint: false });
+    g.restore();
+    CM.drawZzz(g, M, { color: P.cut, font: CM.FONT.serif });
+  },
+});
+}
+
+/* ═════════ 36 · Ukiyo-e (after Hokusai, 1831) ═════════ */
+{
+const P = { paper: '#e9dcc0', blot: '#b9a47a', deep: '#1d3866', mid: '#3a62a0', pale: '#9db6cf', foam: '#f6f1e4', key: '#1a2238', seal: '#b8322a',
+  top: '#f1a27c', front: '#d9643f', side: '#a8472d', leg: '#c55a39', legDark: '#93402a' };
+/* the big wave: an outline with a curling crest; s sways the crest */
+function wave(g, s) {
+  g.moveTo(0, 400); g.lineTo(0, 210);
+  g.bezierCurveTo(8, 130, 66, 74, 146, 64 + s);
+  g.bezierCurveTo(196, 58 + s, 232, 82 + s, 236 + s, 112 + s);
+  g.bezierCurveTo(222, 94 + s, 196, 90 + s, 180, 106 + s);
+  g.bezierCurveTo(150, 136, 160, 210, 196, 268);
+  g.bezierCurveTo(214, 300, 232, 336, 240, 400); g.closePath();
+}
+const crest = s => { const pts = []; for (let k = 0; k <= 22; k++) { const u = k / 22, a = [0, 210], b = [8, 130], c = [66, 74], d = [146, 64 + s], m = 1 - u; pts.push([m * m * m * a[0] + 3 * m * m * u * b[0] + 3 * m * u * u * c[0] + u * u * u * d[0], m * m * m * a[1] + 3 * m * m * u * b[1] + 3 * m * u * u * c[1] + u * u * u * d[1]]); } return pts; };
+CM.style({
+  id: 'sukiyoe', n: 36, title: 'Ukiyo-e', caption: 'After Hokusai, 1831',
+  init(env) {
+    const r = CM.RNG(36);
+    return {
+      bg: env.layer(g => {
+        ground(g, P.paper, P.blot, 36, { amt: .3, grainA: .1 });
+        g.fillStyle = 'rgba(120,110,95,.12)'; g.fillRect(0, 150, 400, 26); g.fillRect(0, 196, 400, 12);
+        /* the distant sea, and Fuji under its snow */
+        g.fillStyle = P.pale; g.fillRect(0, 284, 400, 116);
+        g.fillStyle = P.mid; g.beginPath(); g.moveTo(296, 285); g.lineTo(338, 252); g.lineTo(352, 252); g.lineTo(396, 285); g.fill();
+        g.fillStyle = P.foam; g.beginPath(); g.moveTo(326, 261); g.lineTo(338, 252); g.lineTo(352, 252); g.lineTo(364, 261); for (let k = 0; k < 5; k++) g.lineTo(361 - k * 7, k % 2 ? 258 : 265); g.fill();
+        /* the cartouche and the seal */
+        g.fillStyle = '#f3ead6'; g.fillRect(352, 20, 30, 126); g.strokeStyle = P.key; g.lineWidth = 1.2; g.strokeRect(352, 20, 30, 126); g.strokeRect(349, 17, 36, 132);
+        g.fillStyle = P.key; g.font = `600 17px ${CM.FONT.serif}`; g.textAlign = 'center'; g.textBaseline = 'middle'; [...'CLAWD'].forEach((c, i) => g.fillText(c, 367, 36 + i * 23.5));
+        g.fillStyle = P.seal; g.beginPath(); g.roundRect(18, 20, 20, 22, 2); g.fill(); g.fillStyle = P.paper; g.font = `700 14px ${CM.FONT.serif}`; g.fillText('C', 28, 32);
+        g.fillStyle = P.key; g.font = `11px ${CM.FONT.serif}`; [...'HOKU'].forEach((c, i) => g.fillText(c, 28, 58 + i * 14));
+      }),
+      grain: env.layer(g => { g.fillStyle = 'rgba(90,70,40,.1)'; for (let i = 0; i < 3500; i++) g.fillRect(r() * 400, r() * 400, r.range(.5, 1.6), r.range(.5, 1.6)); }),
+      spray: Array.from({ length: 38 }, () => [r.range(40, 250), r.range(20, 80), r.range(1, 2.6), r() * TAU]),
+    };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, sw = sin(t * .9) * 4, M = CM.build(p, { cx: 262, cy: 252, s: 9.4 });
+    env.stamp(g, S.bg);
+    /* the great wave: Prussian blue with lighter combing, a white crest of clawed foam */
+    g.fillStyle = P.deep; g.beginPath(); wave(g, sw); g.fill();
+    g.save(); g.beginPath(); wave(g, sw); g.clip(); g.strokeStyle = P.mid; g.lineWidth = 2.2;
+    for (let k = 1; k < 9; k++) { g.beginPath(); g.moveTo(k * 15, 400); g.bezierCurveTo(k * 15 + 4, 210, k * 12 + 40, 120 + k * 6, 150 + k * 4, 72 + k * 10 + sw); g.stroke(); }
+    g.restore();
+    const C = crest(sw); g.strokeStyle = P.foam; g.lineWidth = 9; g.lineCap = 'round'; g.lineJoin = 'round'; CM.strokePoly(g, C.slice(8), null, null, false);
+    g.lineWidth = 2.2;
+    for (let k = 9; k < C.length; k++) {
+      const [x, y] = C[k], a = -1.2 + k * .07 + sin(t * 2 + k) * .12; g.beginPath(); g.moveTo(x, y);
+      g.quadraticCurveTo(x + cos(a) * 12, y + sin(a) * 12, x + cos(a + 1.4) * 9, y + sin(a + 1.4) * 9 - 3); g.stroke();
+    }
+    g.fillStyle = P.foam; for (const [x, y, r, ph] of S.spray) { g.beginPath(); g.arc(x + sin(t * .8 + ph) * 2, y + ((t * 6 + ph * 10) % 30), r, 0, TAU); g.fill(); }
+    /* the small wave Clawd stands on */
+    g.fillStyle = P.mid; g.beginPath(); g.moveTo(150, 400); g.bezierCurveTo(180, 330, 240, 312 + sw * .5, 300, 318); g.bezierCurveTo(350, 324, 380, 340, 400, 350); g.lineTo(400, 400); g.fill();
+    g.strokeStyle = P.foam; g.lineWidth = 2; g.beginPath(); g.moveTo(178, 352); g.bezierCurveTo(206, 322, 250, 316 + sw * .5, 300, 320); g.stroke();
+    /* Clawd, cut in flat blocks with a dark key line */
+    CM.drawStars(g, M, false, { fill: '#f2c14e', ink: P.key });
+    g.lineJoin = 'round'; CM.unionOutline(g, M, 1.8, P.key, P.front);
+    for (const f of M.faces) CM.fillPoly(g, f.pts, tone(f, P));
+    strokeEdges(g, M, P.key, .9);
+    CM.drawEyes(g, M, { color: P.key, glint: P.foam });
+    CM.drawStars(g, M, true, { fill: '#f2c14e', ink: P.key });
+    CM.drawZzz(g, M, { color: P.key, font: CM.FONT.serif });
+    env.stamp(g, S.grain);
+  },
+});
+}
+
+/* ═════════ 37 · Sampler (cross-stitch, 1840s) ═════════ */
+{
+const N = 66, T = 400 / N;
+const P = { linen: '#e7dab9', blot: '#b8a47a', red: '#a8392f', blue: '#3b5a8a', green: '#5d7a3e', brown: '#5a3a28', gold: '#c99a3d',
+  top: '#eba27c', front: '#d0603c', side: '#9c4430', leg: '#c25537', legDark: '#8d3d29', rim: '#6b2a1c', eye: '#2a1c16' };
+/* cross-stitches, batched per thread colour: a darker underside, then the thread on top */
+function stitch(g, list, color) {
+  if (!list.length) return;
+  for (const [col, lw, d] of [[CM.shade(color, .62), 2, .45], [color, 1.45, 0]]) {
+    g.strokeStyle = col; g.lineWidth = lw; g.lineCap = 'round'; g.beginPath();
+    for (const [i, j] of list) { const x = i * T + d, y = j * T + d; g.moveTo(x + 1, y + 1); g.lineTo(x + T - 1, y + T - 1); g.moveTo(x + T - 1, y + 1); g.lineTo(x + 1, y + T - 1); }
+    g.stroke();
+  }
+}
+CM.style({
+  id: 'ssampler', n: 37, title: 'Sampler', caption: 'Cross-stitch, 1840s',
+  init(env) {
+    const by = new Map(), put = (c, i, j) => { if (!by.has(c)) by.set(c, []); by.get(c).push([i, j]); };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const e = min(i, j, N - 1 - i, N - 1 - j);
+      if (e === 2 && (i + j) % 4 !== 0) put(P.green, i, j);
+      if (e === 3 && (i + j) % 8 === 0) put(P.red, i, j);
+    }
+    pixText('ABCDEFGHIJKLM', 7, 7, (i, j) => put(P.red, i, j));
+    pixText('NOPQRSTUVWXYZ', 7, 14, (i, j) => put(P.blue, i, j));
+    pixText('♥', 17, 21, (i, j) => put(P.red, i, j)); pixText('1843', 25, 21, (i, j) => put(P.blue, i, j)); pixText('♥', 45, 21, (i, j) => put(P.red, i, j));
+    pixText('HOME SWEET ~/', 7, 56, (i, j) => put(P.brown, i, j));
+    for (const cx of [11, 54]) for (let j = 38; j < 53; j++) for (let i = cx - 4; i <= cx + 4; i++) {
+      if ((i - cx) ** 2 + (j - 42) ** 2 <= 11) put((i + j) % 5 ? P.green : P.red, i, j);
+      else if (i === cx && j > 44) put(P.brown, i, j);
+    }
+    for (let i = 6; i < N - 6; i++) if (i % 3) put(P.green, i, 53);
+    return { bg: env.layer(g => {
+      ground(g, P.linen, P.blot, 37, { amt: .22, grain: 0 });
+      g.fillStyle = 'rgba(120,100,60,.09)'; for (let k = 0; k < 400; k += 3) { g.fillRect(k, 0, 1, 400); g.fillRect(0, k, 400, 1); }
+      for (const [c, list] of by) stitch(g, list, c);
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 200, cy: 246, s: 9.4 }), { C } = cells(M, N, N, [0, 0, 400, 400]);
+    env.stamp(g, S.bg);
+    const by = new Map();
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const c = C[j * N + i]; if (!c) continue;
+      const col = c.eye ? P.eye : c.rim ? P.rim : tone(c.f, P);
+      if (!by.has(col)) by.set(col, []); by.get(col).push([i, j]);
+    }
+    for (const [col, list] of by) stitch(g, list, col);
+    CM.drawStars(g, M, true, { fill: P.gold, ink: P.brown });
+    CM.drawZzz(g, M, { color: P.brown });
+  },
+});
+}
+
+/* ═════════ 38 · Strongman bill (letterpress, 1890s) ═════════ */
+{
+const P = { paper: '#efe2c2', blot: '#b49a68', red: '#bf3527', ink: '#1d1a17' };
+const ACT = { wave: 'WAVE', wave2: 'WAVE', dance: 'DANCE', hop: 'HOP', spin: 'SPIN', dizzy: 'SPIN', doze: 'NAP', stretch: 'STRETCH', cheese: 'SMILE', nod: 'NOD', shake: 'SHRUG' };
+const DIDONE = CM.FONT.didone, SERIF = CM.FONT.caslon;
+function fit(g, str, x, y, size, maxW, weight = 700, family = DIDONE, track = 0) {
+  g.font = `${weight} ${size}px ${family}`; const w = g.measureText(str).width + track * (str.length - 1);
+  if (w > maxW) g.font = `${weight} ${size * maxW / w}px ${family}`; CM.spaced(g, str, x, y, track * min(1, maxW / w));
+}
+CM.style({
+  id: 'sbill', n: 38, title: 'Strongman Bill', caption: 'Letterpress, 1890s',
+  init(env) {
+    const r = CM.RNG(38);
+    return {
+      bg: env.layer(g => {
+        ground(g, P.paper, P.blot, 38, { amt: .32, grainA: .12 });
+        g.textBaseline = 'alphabetic'; g.textAlign = 'center';
+        g.fillStyle = P.red; g.fillRect(24, 16, 352, 20); g.fillStyle = P.paper; fit(g, '★  ONE WEEK ONLY  ★', 200, 31, 13, 300, 600, SERIF, 2.5);
+        g.fillStyle = P.ink; fit(g, 'THE AMAZING', 200, 72, 34, 300, 500, DIDONE, 1);
+        g.fillStyle = P.red; fit(g, 'CLAWD', 200, 116, 50, 260, 700, DIDONE, 4);
+        g.fillStyle = P.ink; g.fillRect(30, 126, 340, 2); g.fillRect(30, 146, 340, 1);
+        fit(g, 'THE CLEVEREST CREATURE UPON THE EARTH', 200, 141, 11.5, 320, 700, SERIF, .8);
+        /* the two outer columns of claims */
+        g.fillStyle = P.red; ['PASSES', 'ALL', 'TESTS!'].forEach((s, i) => fit(g, s, 66, 284 + i * 17, 17, 96, 500, DIDONE));
+        ['REFACTORS', 'LEGACY', 'CODE!'].forEach((s, i) => fit(g, s, 334, 284 + i * 17, 17, 96, 500, DIDONE));
+        g.fillStyle = P.ink; g.font = `italic 9px ${SERIF}`; g.fillText('with no help at all', 66, 333); g.fillText('and leaves no trace', 334, 333);
+        g.font = `14px ${SERIF}`; g.fillText('☞', 112, 332); g.fillText('☜', 288, 332);
+        g.fillRect(30, 342, 340, 1.5);
+        fit(g, 'TWICE DAILY · 2 & 8', 200, 362, 18, 300, 500, DIDONE, 1);
+        g.fillStyle = P.red; fit(g, 'ADMISSION 10¢', 200, 378, 11, 200, 600, SERIF, 3);
+        g.fillStyle = P.ink; g.font = `italic 8.5px ${SERIF}`; g.fillText('Children half price · Terminals admitted free on Tuesdays', 200, 391);
+      }),
+      /* worn type: specks of bare paper through the ink */
+      worn: env.layer(g => { g.fillStyle = 'rgba(239,226,194,.75)'; for (let i = 0; i < 1800; i++) g.fillRect(r() * 400, r() * 400, r.range(.5, 1.5), r.range(.5, 1.5)); }),
+    };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 200, cy: 208, s: 7.8 });
+    env.stamp(g, S.bg);
+    /* the centre column follows whatever Clawd is up to */
+    const verb = ACT[p.act] || 'THINK';
+    g.textAlign = 'center'; g.fillStyle = P.ink; g.font = `500 15px ${DIDONE}`; g.fillText('SEE IT', 200, 285);
+    g.fillStyle = P.red; fit(g, verb + '!', 200, 318, 34, 116, 500, DIDONE);
+    g.fillStyle = P.ink; g.font = `italic 9px ${SERIF}`; g.fillText('without wires or tricks', 200, 333);
+    /* two-colour woodcut: red pulled first and slightly off register, then the black key */
+    g.lineJoin = 'round'; g.fillStyle = P.paper; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+    g.save(); g.translate(1.4, .9);
+    for (const f of M.faces) if (f.name === 'front' || (f.part[0] === 'a' && f.name !== 'top')) CM.fillPoly(g, f.pts, P.red);
+    g.restore();
+    for (const f of M.faces) if (f.name !== 'front' && f.name !== 'top' && f.part[0] !== 'a') CM.hatch(g, f.pts, .8, 2.2, .8, { color: P.ink });
+    g.strokeStyle = P.ink; g.lineWidth = 1.8; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke();
+    strokeEdges(g, M, P.ink, .8);
+    CM.drawEyes(g, M, { color: P.ink, glint: P.paper });
+    CM.drawStars(g, M, true, { fill: P.red, ink: P.ink, r: 7 });
+    CM.drawZzz(g, M, { color: P.ink, font: DIDONE });
+    env.stamp(g, S.worn);
+  },
+});
+}
+
+/* ═════════ 39 · Constructivism (Moscow, 1920s) ═════════ */
+{
+const P = { paper: '#ece2cc', blot: '#b9a985', red: '#d22b1f', black: '#161413', grey: '#8f8a82' };
+const GROT = CM.FONT.grotesk;
+/* a straight band from a to b, w wide */
+function band(a, b, w) { const dx = b[0] - a[0], dy = b[1] - a[1], L = hypot(dx, dy), nx = -dy / L * w / 2, ny = dx / L * w / 2; return [[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]]; }
+CM.style({
+  id: 'sconst', n: 39, title: 'Constructivism', caption: 'Moscow, 1920s',
+  init(env) {
+    return { bg: env.layer(g => {
+      ground(g, P.paper, P.blot, 39, { amt: .26 });
+      g.fillStyle = P.red; g.beginPath(); g.arc(246, 168, 106, 0, TAU); g.fill();
+      CM.fillPoly(g, band([-30, 404], [430, 172], 46), P.black);
+      CM.fillPoly(g, band([-30, 444], [430, 212], 4), P.grey);
+      CM.fillPoly(g, [[18, 392], [104, 330], [58, 300]], P.red);
+      g.fillStyle = P.black; g.textBaseline = 'alphabetic';
+      g.save(); g.translate(76, 338); g.rotate(-PI / 2); g.font = `900 78px ${GROT}`; g.textAlign = 'left'; CM.spaced(g, 'КЛОД', 0, 0, 2, 'left'); g.restore();
+      g.font = `700 10px ${GROT}`; g.textAlign = 'left'; CM.spaced(g, 'ВЫШЕ · БЫСТРЕЕ · УМНЕЕ', 104, 36, 1.2, 'left'); g.fillRect(104, 41, 168, 2.4);
+      g.save(); g.translate(290, 112); g.rotate(.42); g.fillStyle = P.paper; g.font = `italic 700 17px ${GROT}`; g.fillText('ПИШЕТ!', 0, 0); g.restore();
+      g.save(); g.translate(128, 386); g.rotate(-.2); g.fillStyle = P.red; g.font = `900 38px ${GROT}`; g.fillText('ИЗ КОДА', 0, 0); g.restore();
+      g.fillStyle = P.black; g.fillRect(328, 300, 50, 42); g.fillStyle = P.paper; g.font = `800 25px ${GROT}`; g.textAlign = 'center'; g.fillText('№1', 353, 330);
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 222, cy: 176, s: 10 });
+    env.stamp(g, S.bg);
+    /* photomontage: a halftoned photograph of Clawd, cut out with a white margin */
+    g.save(); g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowOffsetX = 2; g.shadowOffsetY = 3;
+    g.lineJoin = 'round'; CM.unionOutline(g, M, 5, '#fbf8f0', '#9a948a'); g.restore();
+    for (const f of M.faces) {
+      const v = 70 + 150 * f.light; CM.fillPoly(g, f.pts, CM.rgb(v, v * .97, v * .93));
+      CM.halftone(g, f.pts, 3.4, () => .35 + (1 - f.light) * 1.35, PI / 4, P.black);
+    }
+    CM.drawEyes(g, M, { color: P.black, glint: '#eee' });
+    CM.drawStars(g, M, true, { fill: P.red, ink: P.black });
+    CM.drawZzz(g, M, { color: P.black, font: GROT });
+  },
+});
+}
+
+/* ═════════ 40 · Art Deco (streamline poster, 1930s) ═════════ */
+{
+const P = { sky0: '#0f1a33', sky1: '#24426a', ray: 'rgba(160,200,230,.07)', teal: '#21737b', tealD: '#164c55', win: '#f2d06b', gold: '#d9b25a', goldL: '#f4dc93', cream: '#f2e8cf',
+  top: '#f6b48c', front: '#e2774f', side: '#b4553a', leg: '#cc6545', legDark: '#9a4630' };
+const ROOF = 262;
+CM.style({
+  id: 'sdeco', n: 40, title: 'Art Deco', caption: 'Streamline poster, 1930s',
+  init(env) {
+    const r = CM.RNG(40);
+    return { bg: env.layer(g => {
+      const G = g.createLinearGradient(0, 0, 0, 330); G.addColorStop(0, P.sky0); G.addColorStop(1, P.sky1); g.fillStyle = G; g.fillRect(0, 0, 400, 400);
+      g.fillStyle = P.ray; for (let k = 0; k < 28; k += 2) { const a0 = PI + k / 28 * PI, a1 = PI + (k + 1) / 28 * PI; g.beginPath(); g.moveTo(200, 250); g.lineTo(200 + cos(a0) * 500, 250 + sin(a0) * 500); g.lineTo(200 + cos(a1) * 500, 250 + sin(a1) * 500); g.fill(); }
+      const glow = g.createRadialGradient(200, 250, 5, 200, 250, 180); glow.addColorStop(0, 'rgba(244,220,147,.55)'); glow.addColorStop(1, 'rgba(244,220,147,0)'); g.fillStyle = glow; g.fillRect(0, 0, 400, 400);
+      /* the skyline: stepped towers, lit windows, two spires and the gilded globe */
+      const tower = (x, w, top, steps, spire) => {
+        const cx = x + w / 2;
+        if (spire) { g.fillStyle = P.gold; g.beginPath(); g.moveTo(cx - 3, top); g.lineTo(cx, top - spire); g.lineTo(cx + 3, top); g.fill(); }
+        const tiers = Array.from({ length: steps + 1 }, (_, s) => [cx - w * (1 - (steps - s) * .16) / 2, top + s * 14, w * (1 - (steps - s) * .16)]);
+        for (const [tx, ty, tw] of tiers) { g.fillStyle = P.tealD; g.fillRect(tx, ty, tw, 330 - ty); g.fillStyle = P.teal; g.fillRect(tx, ty, tw * .62, 330 - ty); }
+        for (let wy = top + 8; wy < 326; wy += 7) for (let wx = x + 4; wx < x + w - 4; wx += 6) if (r() < .32) { g.fillStyle = CM.alpha(P.win, r.range(.5, 1)); g.fillRect(wx, wy, 2.2, 3.2); }
+      };
+      [[-6, 52, 214, 2, 30], [40, 40, 250, 1, 0], [76, 46, 196, 3, 46], [118, 40, 236, 1, 0], [158, 84, ROOF, 0, 0], [238, 42, 232, 1, 0], [276, 48, 180, 3, 0], [320, 40, 244, 1, 0], [356, 50, 206, 2, 34]].forEach(a => tower(...a));
+      g.fillStyle = P.gold; g.beginPath(); g.arc(300, 164, 13, 0, TAU); g.fill(); g.strokeStyle = P.goldL; g.lineWidth = 1.5; g.beginPath(); g.ellipse(300, 164, 21, 5, -.3, 0, TAU); g.stroke();
+      g.fillStyle = P.gold; g.fillRect(298, 177, 4, 4);
+      /* the title band and the double gold rule */
+      g.fillStyle = '#0b1324'; g.fillRect(0, 330, 400, 70); g.fillStyle = P.gold; g.fillRect(14, 332, 372, 1.5);
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillStyle = P.cream; g.font = `400 40px ${CM.FONT.deco}`; CM.spaced(g, 'CLAWD', 200, 370, 12);
+      g.fillStyle = P.gold; g.font = `600 9px ${CM.FONT.sans}`; CM.spaced(g, 'THE TERMINAL OF TOMORROW', 200, 387, 3.2);
+      g.fillStyle = P.cream; g.font = `600 10px ${CM.FONT.sans}`; g.textAlign = 'left'; CM.spaced(g, 'CODE · 1938', 22, 32, 3, 'left');
+      g.strokeStyle = P.gold; g.lineWidth = 1.2; g.strokeRect(8, 8, 384, 384); g.strokeRect(12, 12, 376, 376);
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, s = 9.6, M = CM.build(p, { cx: 200, cy: ROOF - 7.3 * s, s });
+    env.stamp(g, S.bg);
+    /* two searchlights sweep the sky */
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (const [x, ph] of [[70, 0], [330, 2.1]]) {
+      const a = -PI / 2 + sin(t * .45 + ph) * .55, L = 420, w = .07;
+      const G = g.createLinearGradient(x, 330, x + cos(a) * L, 330 + sin(a) * L); G.addColorStop(0, 'rgba(255,240,200,.22)'); G.addColorStop(1, 'rgba(255,240,200,0)');
+      g.fillStyle = G; g.beginPath(); g.moveTo(x, 330); g.lineTo(x + cos(a - w) * L, 330 + sin(a - w) * L); g.lineTo(x + cos(a + w) * L, 330 + sin(a + w) * L); g.fill();
+    }
+    g.restore();
+    CM.drawStars(g, M, false, { fill: P.gold, ink: P.sky0 });
+    /* streamline shading: every face a smooth vertical ramp, a fine gold edge round the whole */
+    g.lineJoin = 'round'; CM.unionOutline(g, M, 1.3, P.gold, P.front);
+    for (const f of M.faces) {
+      const b = CM.bbox(f.pts), c = tone(f, P), G = g.createLinearGradient(0, b[1], 0, b[3] + .1);
+      G.addColorStop(0, CM.shade(c, 1.18)); G.addColorStop(1, CM.shade(c, .72 + .2 * f.light)); CM.fillPoly(g, f.pts, G);
+    }
+    strokeEdges(g, M, CM.alpha(P.goldL, .55), .7);
+    CM.drawEyes(g, M, { color: P.sky0, glint: P.goldL });
+    CM.drawStars(g, M, true, { fill: P.gold, ink: P.sky0 });
+    CM.drawZzz(g, M, { color: P.cream, font: CM.FONT.deco });
+  },
+});
+}
+
+/* ═════════ 41 · Golden Age (newsprint, 1938) ═════════ */
+{
+const P = { paper: '#f1dfa9', sky: '#f6ae2d', dot: '#e0502a', ground: '#8a5a2b', red: '#d63a2a', yellow: '#ffd23f', ink: '#16120f', bug: '#4f9a3a', bugD: '#2f6a24',
+  top: '#ffb48c', front: '#f0683a', side: '#b9442a', leg: '#d9592f', legDark: '#9f3c24' };
+const GROT = CM.FONT.grotesk;
+function burst(g, x, y, r, n, seed) { g.beginPath(); for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * TAU, d = i & 1 ? r * (.62 + CM.hash(seed + i) * .12) : r * (1 + CM.hash(seed + i) * .15); g.lineTo(x + cos(a) * d * 1.2, y + sin(a) * d); } g.closePath(); }
+CM.style({
+  id: 'sgolden', n: 41, title: 'Golden Age', caption: 'Newsprint, 1938',
+  init(env) {
+    const r = CM.RNG(41);
+    return {
+      bg: env.layer(g => {
+        g.fillStyle = P.paper; g.fillRect(0, 0, 400, 400);
+        g.fillStyle = P.sky; g.fillRect(8, 78, 384, 236);
+        CM.halftone(g, [[[8, 78], [392, 78], [392, 314], [8, 314]]], 6, (x, y) => .6 + (y - 78) / 236 * 1.3, PI / 4, CM.alpha(P.dot, .55));
+        g.fillStyle = P.ground; g.fillRect(8, 312, 384, 80);
+        CM.hatch(g, [[8, 314], [392, 314], [392, 392], [8, 392]], .12, 7, 1, { color: 'rgba(40,20,5,.5)', wobble: 1.4, seed: 4 });
+        g.fillStyle = P.ink; g.fillRect(8, 311, 384, 2.5);
+        /* masthead */
+        g.fillStyle = P.red; g.fillRect(8, 8, 384, 66); g.strokeStyle = P.ink; g.lineWidth = 2.5; g.strokeRect(8, 8, 384, 66); g.strokeRect(8, 8, 384, 384);
+        for (const [x, l1, l2] of [[16, 'No.', '1'], [338, '10¢', 'JUNE']]) {
+          g.fillStyle = P.yellow; g.fillRect(x, 16, 46, 50); g.strokeRect(x, 16, 46, 50);
+          g.fillStyle = P.ink; g.textAlign = 'center'; g.font = `700 13px ${GROT}`; g.fillText(l1, x + 23, 36); g.font = `700 ${l2.length > 2 ? 11 : 20}px ${GROT}`; g.fillText(l2, x + 23, 58);
+        }
+        g.font = `italic 900 46px ${GROT}`; const w = g.measureText('TERMINAL').width, k = min(1, 260 / w);
+        g.save(); g.translate(200, 60); g.scale(k, 1); g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = P.ink; g.strokeText('TERMINAL', 2, 2); g.strokeText('TERMINAL', 0, 0); g.fillStyle = P.yellow; g.fillText('TERMINAL', 0, 0); g.restore();
+        /* the caption box */
+        g.fillStyle = '#fff4c8'; g.fillRect(16, 86, 136, 40); g.strokeRect(16, 86, 136, 40);
+        g.fillStyle = P.ink; g.textAlign = 'center'; g.font = `700 9px ${GROT}`; g.fillText('STARTING THIS ISSUE!', 84, 101); g.font = `italic 900 17px ${GROT}`; g.fillText('CLAWD!', 84, 120);
+      }),
+      grain: env.layer(g => { for (let i = 0; i < 2600; i++) { g.fillStyle = r() < .5 ? 'rgba(90,60,20,.12)' : 'rgba(255,250,230,.3)'; g.fillRect(r() * 400, r() * 400, r.range(.5, 1.6), r.range(.5, 1.6)); } }),
+    };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 168, cy: 236, s: 10.6 });
+    env.stamp(g, S.bg);
+    /* a bug, flipped on its back, legs going */
+    const bx = 324, by = 296, rot = sin(t * 3) * .12;
+    g.save(); g.translate(bx, by); g.rotate(PI + rot); g.lineCap = 'round';
+    g.strokeStyle = P.ink; g.lineWidth = 2.4;
+    for (let i = 0; i < 6; i++) { const x = -14 + (i % 3) * 14, s = i < 3 ? -1 : 1, k = sin(t * 14 + i * 1.7) * 5; g.beginPath(); g.moveTo(x, s * 10); g.lineTo(x + k, s * 24); g.lineTo(x + k + 6, s * 28); g.stroke(); }
+    g.fillStyle = P.bug; g.beginPath(); g.ellipse(0, 0, 28, 17, 0, 0, TAU); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(-26, 0); g.lineTo(26, 0); g.stroke();
+    g.fillStyle = P.bugD; g.beginPath(); g.arc(30, 0, 9, 0, TAU); g.fill(); g.stroke();
+    g.restore();
+    g.strokeStyle = P.ink; g.lineWidth = 2; for (const [a, d] of [[-2.3, 40], [-1.6, 44], [-.9, 40]]) { g.beginPath(); g.moveTo(bx + cos(a) * d, by + sin(a) * d); g.lineTo(bx + cos(a) * (d + 12), by + sin(a) * (d + 12)); g.stroke(); }
+    /* sound effect */
+    const sc = 1 + .06 * sin(t * 6);
+    g.save(); g.translate(318, 168); g.scale(sc, sc); burst(g, 0, 0, 40, 11, 41); g.fillStyle = P.yellow; g.fill(); g.lineWidth = 2.5; g.strokeStyle = P.ink; g.stroke();
+    g.rotate(-.12); g.fillStyle = P.red; g.font = `italic 900 23px ${GROT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeText('FIXED!', 0, 2); g.fillText('FIXED!', 0, 2); g.restore();
+    g.textBaseline = 'alphabetic';
+    /* Clawd: flat colour plates printed slightly off the black key */
+    CM.drawStars(g, M, false, { fill: P.yellow, ink: P.ink });
+    g.save(); g.translate(1.6, 1.1);
+    g.fillStyle = P.front; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+    for (const f of M.faces) { CM.fillPoly(g, f.pts, tone(f, P)); if (f.name !== 'front' && f.name !== 'top') CM.halftone(g, f.pts, 4.2, () => 1.2, PI / 4, CM.alpha(P.red, .7)); }
+    g.restore();
+    g.lineJoin = 'round'; g.strokeStyle = P.ink; g.lineWidth = 2.6; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke();
+    strokeEdges(g, M, P.ink, 1.3);
+    CM.drawEyes(g, M, { color: P.ink, glint: '#fff' });
+    CM.drawStars(g, M, true, { fill: P.yellow, ink: P.ink });
+    CM.drawZzz(g, M, { color: P.ink, font: GROT });
+    env.stamp(g, S.grain);
+  },
+});
+}
+
+/* ═════════ 42 · Neon (diner sign, 1950s) ═════════ */
+{
+const P = { wall: '#1a1214', mortar: '#0e090a', body: '#ff8a3d', face: '#ff6f61', eye: '#5fc8ff', pink: '#ff4fa3', green: '#3dff7a' };
+const SCRIPT = '"Snell Roundhand","Brush Script MT","Segoe Script","URW Chancery L",cursive';
+/* a lit tube: wide faint halo, tighter glow, the tube, a hot white core */
+function tube(g, trace, color, on = 1) {
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const [w, a, c] of [[16, .07, color], [9, .16, color], [4.2, .9, color], [1.6, .9, CM.mix(color, '#ffffff', .65)]]) { g.globalAlpha = a * on; g.lineWidth = w; g.strokeStyle = c; trace(); }
+  g.restore();
+}
+CM.style({
+  id: 'sneon', n: 42, title: 'Neon', caption: 'Diner sign, 1950s',
+  init(env) {
+    const r = CM.RNG(42);
+    return { bg: env.layer(g => {
+      g.fillStyle = P.mortar; g.fillRect(0, 0, 400, 400);
+      for (let j = 0, y = 0; y < 400; j++, y += 18) for (let x = -(j % 2) * 22; x < 400; x += 44) { g.fillStyle = CM.mix('#2c1c1f', '#41282b', r()); g.fillRect(x + 1.5, y + 1.5, 41, 15); }
+      const v = g.createRadialGradient(200, 200, 60, 200, 200, 300); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.65)'); g.fillStyle = v; g.fillRect(0, 0, 400, 400);
+      /* the unlit glass of the lettering, faintly visible on the wall */
+      g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 2; g.font = `italic 600 50px ${SCRIPT}`; g.textAlign = 'center'; g.strokeText('Clawd’s Diner', 200, 304);
+      g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(150, 300, 3, 40); g.fillRect(250, 300, 3, 40);
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 156, s: 10.4 }), outl = CM.outline(M, { res: 60 });
+    env.stamp(g, S.bg);
+    const blink = CM.hash(floor(t * 9) + 4242) < .025 ? .25 : 1;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const wash = g.createRadialGradient(M.center[0], M.center[1], 10, M.center[0], M.center[1], 190); wash.addColorStop(0, `rgba(255,120,60,${.22 * blink})`); wash.addColorStop(1, 'rgba(255,120,60,0)');
+    g.fillStyle = wash; g.fillRect(0, 0, 400, 400);
+    const pw = g.createRadialGradient(200, 296, 10, 200, 296, 170); pw.addColorStop(0, 'rgba(255,80,160,.16)'); pw.addColorStop(1, 'rgba(255,80,160,0)'); g.fillStyle = pw; g.fillRect(0, 0, 400, 400);
+    g.restore();
+    /* Clawd bent in glass: the outline, the front face, the eyes */
+    tube(g, () => { g.beginPath(); for (const o of outl) CM.path(g, o); g.stroke(); }, P.body, blink);
+    if (M.frontVis) tube(g, () => { g.beginPath(); CM.path(g, CM.offsetPoly(M.front.pts, 3.5)); g.stroke(); }, P.face, blink);
+    for (const e of M.eyes) if (e.vis) tube(g, () => { g.beginPath(); if (e.poly) CM.path(g, e.poly); for (const l of e.lines) CM.path(g, l, false); g.stroke(); }, P.eye, blink);
+    for (const s of M.stars) tube(g, () => { g.beginPath(); g.arc(s.x, s.y, 5 * s.k, 0, TAU); g.stroke(); }, '#fff27a');
+    /* the sign, and OPEN with a tired E */
+    g.font = `italic 600 50px ${SCRIPT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    tube(g, () => g.strokeText('Clawd’s Diner', 200, 304), P.pink);
+    g.font = `700 26px ${CM.FONT.grotesk}`; const E = CM.noise1(t * 2.2, 42) > .45 ? .12 : 1;
+    [...'OPEN'].forEach((c, i) => tube(g, () => g.strokeText(c, 296 + i * 24, 364), P.green, c === 'E' ? E : 1));
+    CM.drawZzz(g, M, { color: P.eye });
+  },
+});
+}
+
+/* ═════════ 43 · Silkscreen (after Warhol, 1960s) ═════════ */
+{
+const INK = '#151213';
+const Q = [
+  { bg: '#f39a3c', front: '#ffd36b', top: '#fff0b0', side: '#d9573b', eye: '#2a3cb0' },
+  { bg: '#3fc1b0', front: '#ff7a5c', top: '#ffd0c0', side: '#2b6f8f', eye: '#ffe14d' },
+  { bg: '#f06aa8', front: '#ffe14d', top: '#fff6c0', side: '#9b3fa0', eye: '#2b6f8f' },
+  { bg: '#d8e84a', front: '#f28c28', top: '#ffe9b0', side: '#3d8f5f', eye: '#c2185b' },
+];
+CM.style({
+  id: 'ssilk', n: 43, title: 'Silkscreen', caption: 'After Warhol, 1960s',
+  draw(g, env, rig) {
+    const p = rig.pose, t = env.t;
+    g.fillStyle = '#e8e4da'; g.fillRect(0, 0, 400, 400);
+    Q.forEach((c, q) => {
+      const qx = (q % 2) * 200, qy = floor(q / 2) * 200, M = CM.build(p, { cx: qx + 100, cy: qy + 104, s: 7.2 });
+      /* every print in the run lands a little differently: the colour screen drifts off the black one */
+      const k = floor(t / 1.6), dx = (CM.hash(q * 31 + k) - .5) * 5, dy = (CM.hash(q * 17 + k + 9) - .5) * 4;
+      g.save(); g.beginPath(); g.rect(qx + 2, qy + 2, 196, 196); g.clip();
+      g.fillStyle = c.bg; g.fillRect(qx, qy, 200, 200);
+      g.save(); g.translate(dx, dy);
+      g.fillStyle = c.front; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+      for (const f of M.faces) CM.fillPoly(g, f.pts, f.name === 'top' ? c.top : f.name === 'front' ? c.front : c.side);
+      for (const e of M.eyes) if (e.vis && e.poly) CM.fillPoly(g, CM.offsetPoly(e.poly, -2.2), c.eye);
+      g.restore();
+      /* the black key: a coarse halftone in the shadows, a thin contour, the eyes */
+      for (const f of M.faces) if (f.light < .55) CM.halftone(g, f.pts, 3.6, () => .5 + (.55 - f.light) * 2, PI / 4, INK);
+      g.lineJoin = 'round'; g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke();
+      CM.drawEyes(g, M, { color: INK, glint: false });
+      CM.drawStars(g, M, true, { fill: c.top, ink: INK, r: 6 });
+      CM.drawZzz(g, M, { color: INK, font: CM.FONT.grotesk });
+      g.restore();
+    });
+  },
+});
+}
+
+/* ═════════ 44 · Line printer (ASCII art, 1970s) ═════════ */
+{
+const INK = '#26262a', RAMP = ' .:-=+*#%@', CW = 6.2, CH = 10, X0 = 36, Y0 = 40, COLS = 53, ROWS = 25;
+CM.style({
+  id: 'sprinter', n: 44, title: 'Line Printer', caption: 'ASCII art, 1970s',
+  init(env) {
+    const r = CM.RNG(44);
+    return { bg: env.layer(g => {
+      g.fillStyle = '#f6f7f0'; g.fillRect(0, 0, 400, 400);
+      g.fillStyle = '#d3e8d0'; for (let y = 0; y < 400; y += 60) g.fillRect(30, y, 340, 30);
+      g.fillStyle = '#ecede4'; g.fillRect(0, 0, 30, 400); g.fillRect(370, 0, 30, 400);
+      g.strokeStyle = 'rgba(0,0,0,.18)'; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(30, 0); g.lineTo(30, 400); g.moveTo(370, 0); g.lineTo(370, 400); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#2b2b2e'; for (let y = 12; y < 400; y += 24) for (const x of [15, 385]) { g.beginPath(); g.arc(x, y, 4.5, 0, TAU); g.fill(); }
+      g.fillStyle = INK; g.font = `500 7.5px ${MONO}`; g.textBaseline = 'middle'; g.textAlign = 'left';
+      g.fillText('CLAWD.TXT        RUN 1977-06-14 14:02        PAGE 0001', 40, 18);
+      g.fillText('*** ALL TESTS PASSED ***       *** END OF JOB ***', 40, 388);
+      /* a skyline in characters along the foot of the page */
+      g.font = `600 9.5px ${MONO}`; let x = 0;
+      while (x < COLS) {
+        const w = 3 + floor(r() * 5), h = 2 + floor(r() * 6), ch = r.pick(['#', 'H', '8', '%']);
+        for (let j = 0; j < h; j++) for (let i = 0; i < w && x + i < COLS; i++) g.fillText(j === h - 1 ? '=' : (i + j) % 2 && r() < .3 ? ':' : ch, X0 + (x + i) * CW, 372 - j * CH);
+        x += w + floor(r() * 2);
+      }
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 200, cy: 188, s: 11 }), { C } = cells(M, COLS, ROWS, [X0, Y0, X0 + COLS * CW, Y0 + ROWS * CH]);
+    env.stamp(g, S.bg);
+    g.font = `600 9.5px ${MONO}`; g.textBaseline = 'middle'; g.textAlign = 'left';
+    for (let j = 0; j < ROWS; j++) {
+      /* the ribbon prints some lines darker than others, and the hammers strike a touch off line */
+      g.globalAlpha = .78 + CM.hash(j + 440) * .22; const jy = (CM.hash(j + 441) - .5) * 1.2;
+      for (let i = 0; i < COLS; i++) {
+        const c = C[j * COLS + i]; if (!c) continue;
+        const x = X0 + i * CW, y = Y0 + j * CH + CH / 2 + jy;
+        g.fillStyle = INK;
+        if (c.eye) { g.fillText('@', x, y); g.fillText('@', x + .6, y); continue; }
+        const d = c.rim ? .8 : 1 - c.f.light * (c.f.name === 'top' ? .75 : .55);
+        const ch = RAMP[min(RAMP.length - 1, max(2, round(d * (RAMP.length - 1))))];
+        g.fillText(ch, x, y); if (c.rim) g.fillText(ch, x + .5, y);
+      }
+    }
+    g.globalAlpha = 1;
+    for (const s of M.stars) { g.fillStyle = INK; g.fillText('*', s.x, s.y); }
+    CM.drawZzz(g, M, { color: INK, font: MONO });
+  },
+});
+}
+
+/* ═════════ 45 · Handheld (four shades of green, 1989) ═════════ */
+{
+const SH = ['#c5d36b', '#8fa83f', '#4f6b2a', '#1f3415'], R = 100, K = 400 / R;
+const CLOUD = ['..####...', '.#....##.', '#.......#', '#########'];
+const MSG = 'HELLO WORLD';
+CM.style({
+  id: 'shandheld', n: 45, title: 'Handheld', caption: 'Four shades of green, 1989',
+  init(env) {
+    const r = CM.RNG(45), city = [];
+    for (let x = 0; x < 200;) { const w = 6 + floor(r() * 8), h = 8 + floor(r() * 16); city.push({ x, w, h, lit: r() }); x += w + 1 + floor(r() * 3); }
+    return {
+      lo: CM.canvas(R, R), city,
+      lcd: env.layer(g => { g.fillStyle = 'rgba(31,52,21,.08)'; for (let k = 0; k <= 400; k += K) { g.fillRect(k - .3, 0, .6, 400); g.fillRect(0, k - .3, 400, .6); } }),
+    };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 196, s: 10.4 }), { C } = cells(M, R, R, [0, 0, 400, 400]), L = S.lo.g;
+    const px = (x, y, c) => { L.fillStyle = SH[c]; L.fillRect(x, y, 1, 1); };
+    L.fillStyle = SH[0]; L.fillRect(0, 0, R, R);
+    /* the horizon dither, drifting clouds, and the city scrolling past */
+    for (let y = 56; y < 78; y++) for (let x = (y & 1); x < R; x += 2) if (y > 66 || (x + y) % 4 === 0) px(x, y, 1);
+    [[10, 16, 3], [60, 22, 2], [100, 13, 4]].forEach(([x0, y0, v]) => {
+      const x = ((floor(x0 - t * v) % 120) + 120) % 120 - 10;
+      CLOUD.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '#') px(x + i, y0 + j, 3); });
+    });
+    const off = floor(t * 5) % 200;
+    for (const b of S.city) for (const base of [b.x - off, b.x - off + 200]) {
+      if (base > R || base + b.w < 0) continue;
+      L.fillStyle = SH[2]; L.fillRect(base, 78 - b.h, b.w, b.h); L.fillStyle = SH[3]; L.fillRect(base, 78 - b.h, b.w, 1);
+      for (let y = 78 - b.h + 3; y < 76; y += 3) for (let x = base + 2; x < base + b.w - 1; x += 2) if (CM.hash2(x - base + b.x, y, 7) < b.lit) px(x, y, 0);
+    }
+    /* Clawd, rasterised straight onto the LCD */
+    for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) {
+      const c = C[j * R + i]; if (!c) continue;
+      px(i, j, c.eye || c.rim ? 3 : c.f.name === 'top' ? 0 : c.f.name === 'front' && c.f.part === 'body' ? 1 : 2);
+    }
+    for (const s of M.stars) { const x = round(s.x / K), y = round(s.y / K); px(x, y, 3); px(x - 1, y, 3); px(x + 1, y, 3); px(x, y - 1, 3); px(x, y + 1, 3); }
+    if (p.sleep > .3) pixText('Z', round(M.top[0] / K) + 6, round(M.top[1] / K) - 8 - (floor(t * 2) % 3), (x, y) => px(x, y, 3));
+    /* the status bar and the text box */
+    L.fillStyle = SH[0]; L.fillRect(0, 0, R, 9); L.fillStyle = SH[3]; L.fillRect(0, 9, R, 1);
+    pixText('SCORE ' + String(2318 + floor(t * 7) % 7000).padStart(6, '0'), 2, 2, (x, y) => px(x, y, 3));
+    pixText('♥x3', R - 13, 2, (x, y) => px(x, y, 3));
+    L.fillStyle = SH[3]; L.fillRect(0, 80, R, 20); L.fillStyle = SH[0]; L.fillRect(1, 81, R - 2, 18); L.fillStyle = SH[3]; L.fillRect(2, 82, R - 4, 16); L.fillStyle = SH[0]; L.fillRect(3, 83, R - 6, 14);
+    const n = min(MSG.length, floor((t * 8) % 30));
+    pixText(MSG.slice(0, n), 6, 87, (x, y) => px(x, y, 3));
+    if (n === MSG.length && floor(t * 2) % 2) { L.fillStyle = SH[3]; L.fillRect(89, 91, 5, 1); L.fillRect(90, 92, 3, 1); L.fillRect(91, 93, 1, 1); }
+    g.imageSmoothingEnabled = false; g.drawImage(S.lo.c, 0, 0, 400, 400); g.imageSmoothingEnabled = true;
+    env.stamp(g, S.lcd);
+  },
+});
+}
+
+/* ═════════ 46 · Low poly (polygon era, 1999) ═════════ */
+{
+const P = { top: '#f7a77c', front: '#e8693e', side: '#b84b2c', leg: '#d65a35', legDark: '#a2432a' };
+const GOLD = ['#7a5410', '#b8860b', '#e8b923', '#ffe27a'];
+const VP = [200, 170];
+const prj = (X, Y, z) => [VP[0] + X * 170 / z, VP[1] + (1.4 - Y) * 170 / z];
+function hud(g, str, x, y, size, align = 'left') {
+  g.font = `italic 900 ${size}px ${CM.FONT.grotesk}`; g.textAlign = align; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+  g.lineWidth = 4; g.strokeStyle = '#1a1206'; g.strokeText(str, x, y);
+  const G = g.createLinearGradient(0, y - size, 0, y); G.addColorStop(0, '#fff3a8'); G.addColorStop(.5, '#ffc928'); G.addColorStop(1, '#e8781a'); g.fillStyle = G; g.fillText(str, x, y);
+}
+CM.style({
+  id: 'slowpoly', n: 46, title: 'Low Poly', caption: 'Polygon era, 1999',
+  init(env) {
+    const r = CM.RNG(46);
+    return { bg: env.layer(g => {
+      ['#5e93c9', '#73a5d4', '#8ab6dd', '#a3c7e6', '#bdd8ee', '#d6e8f4'].forEach((c, k) => { g.fillStyle = c; g.fillRect(0, k * 29, 400, 30); });
+      g.fillStyle = '#76866a'; g.fillRect(0, 170, 400, 230);
+      CM.fillPoly(g, [prj(-1.4, 0, 60), prj(1.4, 0, 60), prj(1.4, 0, .9), prj(-1.4, 0, .9)], '#5a5d64');
+      for (let z = 1.2; z < 40; z *= 1.45) CM.fillPoly(g, [prj(-.05, 0, z), prj(.05, 0, z), prj(.05, 0, z * 1.2), prj(-.05, 0, z * 1.2)], '#e8c547');
+      /* blocks of flats down both sides, farthest first */
+      for (let z = 40; z > 1.6; z /= 1.38) for (const side of [-1, 1]) {
+        const X = side * (2 + r() * .6), z1 = z / 1.25, H = 2.5 + r() * 4, c = r.pick(['#7f9aa6', '#8e8f7c', '#6f8796', '#9a8a74']);
+        const wall = [prj(X, 0, z), prj(X, 0, z1), prj(X, H, z1), prj(X, H, z)], front = [prj(X, 0, z1), prj(X + side * 2, 0, z1), prj(X + side * 2, H, z1), prj(X, H, z1)];
+        CM.fillPoly(g, front, CM.shade(c, .82)); CM.fillPoly(g, wall, c);
+        g.fillStyle = 'rgba(40,60,80,.55)';
+        for (let y = .6; y < H - .3; y += .8) for (let u = .15; u < .9; u += .3) { const za = z + (z1 - z) * u, zb = z + (z1 - z) * (u + .14); CM.fillPoly(g, [prj(X, y, za), prj(X, y, zb), prj(X, y + .4, zb), prj(X, y + .4, za)]); }
+      }
+      for (const [x, z, c] of [[-.7, 6, '#f2f2f2'], [.6, 3.4, '#e8c547'], [-.6, 2.4, '#d24b3c']]) {
+        CM.fillPoly(g, [prj(x - .3, 0, z), prj(x + .3, 0, z), prj(x + .3, .45, z), prj(x - .3, .45, z)], c);
+        CM.fillPoly(g, [prj(x - .3, .45, z), prj(x + .3, .45, z), prj(x + .3, .45, z * 1.15), prj(x - .3, .45, z * 1.15)], CM.shade(c, 1.15));
+      }
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 214, s: 10.8 });
+    env.stamp(g, S.bg);
+    /* the gold ring, a coarse torus: the far half behind Clawd, the near half in front */
+    const a = .5 + .3 * sin(t * .7), R = 136, W = 15, cx = 200, cy = 206, segs = [];
+    for (let k = 0; k < 20; k++) {
+      const t0 = k / 20 * TAU, t1 = (k + 1) / 20 * TAU, pt = (th, rr) => [cx + rr * cos(th) * cos(a), cy + rr * sin(th) * .92];
+      const q = [pt(t0, R - W), pt(t1, R - W), pt(t1, R + W), pt(t0, R + W)], z = cos((t0 + t1) / 2) * sin(a);
+      const lit = (sin((t0 + t1) / 2 - 2.2) + 1) / 2; segs.push({ q, z, c: GOLD[min(3, floor(lit * 3.99))] });
+    }
+    for (const s of segs) if (s.z < 0) CM.fillPoly(g, s.q, s.c);
+    /* Clawd in flat-shaded triangles, each quad split the way the hardware drew it */
+    g.fillStyle = P.side; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+    for (const f of M.faces) {
+      const c = CM.shade(tone(f, P), .8 + .3 * f.light), [a0, a1, a2, a3] = f.pts;
+      CM.fillPoly(g, [a0, a1, a2], c); CM.fillPoly(g, [a0, a2, a3], CM.shade(tone(f, P), .74 + .3 * f.light));
+    }
+    CM.drawEyes(g, M, { color: '#1a1206', glint: '#ffffff' });
+    for (const s of segs) if (s.z >= 0) CM.fillPoly(g, s.q, s.c);
+    CM.drawStars(g, M, true, { fill: '#ffe27a', ink: '#1a1206' });
+    CM.drawZzz(g, M, { color: '#1a1206', font: CM.FONT.grotesk });
+    /* HUD */
+    g.strokeStyle = '#1a1206'; g.lineWidth = 6; g.beginPath(); g.arc(28, 28, 9, 0, TAU); g.stroke(); g.strokeStyle = '#ffc928'; g.lineWidth = 3.4; g.stroke();
+    hud(g, 'RINGS 07/12', 44, 36, 21);
+    hud(g, 'TIME 0:' + String((42 + floor(t)) % 60).padStart(2, '0'), 382, 36, 21, 'right');
+    g.fillStyle = '#e8693e'; g.strokeStyle = '#1a1206'; g.lineWidth = 2; g.fillRect(16, 364, 20, 16); g.strokeRect(16, 364, 20, 16); g.fillStyle = '#1a1206'; g.fillRect(21, 368, 2.5, 5); g.fillRect(29, 368, 2.5, 5);
+    hud(g, '×3', 42, 382, 20);
+    g.fillStyle = 'rgba(20,30,90,.82)'; g.fillRect(186, 360, 200, 24); g.strokeStyle = '#f2f2f2'; g.lineWidth = 1.5; g.strokeRect(186, 360, 200, 24);
+    g.fillStyle = '#ffffff'; g.font = `800 11px ${CM.FONT.grotesk}`; g.textAlign = 'center'; CM.spaced(g, 'JUMP THROUGH THE RING!', 286, 376, 1);
+  },
+});
+}
+
+/* ═════════ 47 · Stencil (spray paint, 2000s) ═════════ */
+{
+const P = { wall: '#b9b5ad', blot: '#6f6b64', paint: '#1d1c1c', grey: '#5b5856', red: '#d0261d', bare: '#cbc7bf' };
+function heart(g, x, y, s) { g.moveTo(x, y + s * .9); g.bezierCurveTo(x - s * 1.3, y + s * .1, x - s * .9, y - s * .9, x, y - s * .35); g.bezierCurveTo(x + s * .9, y - s * .9, x + s * 1.3, y + s * .1, x, y + s * .9); g.closePath(); }
+CM.style({
+  id: 'sstencil', n: 47, title: 'Stencil', caption: 'Spray paint, 2000s',
+  init(env) {
+    return { bg: env.layer(g => {
+      ground(g, P.wall, P.blot, 47, { amt: .38, grainA: .22, grain: 5000 });
+      g.fillStyle = 'rgba(60,58,54,.35)'; g.fillRect(0, 132, 400, 1.5); g.fillRect(0, 268, 400, 1.5);
+      for (const y of [66, 200, 334]) for (const x of [60, 200, 340]) { g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(x + .8, y + .8, 4, 0, TAU); g.fill(); g.fillStyle = '#5f5b55'; g.beginPath(); g.arc(x, y, 3.4, 0, TAU); g.fill(); }
+      /* SHIP IT, cut as a stencil: the letters broken by bridges */
+      const L = CM.canvas(400, 400); L.g.fillStyle = 'rgba(40,38,36,.85)'; L.g.font = `900 34px ${CM.FONT.grotesk}`; L.g.textAlign = 'right'; L.g.textBaseline = 'alphabetic'; CM.spaced(L.g, 'SHIP IT', 380, 380, 4, 'right');
+      L.g.globalCompositeOperation = 'destination-out'; for (let x = 236; x < 384; x += 11.4) L.g.fillRect(x, 352, 1.6, 34);
+      g.drawImage(L.c, 0, 0);
+      g.strokeStyle = '#3c5bb5'; g.lineWidth = 1.4; g.beginPath(); for (let k = 0; k <= 30; k++) g.lineTo(340 + k * 1.4, 392 - sin(k * .9) * 3 - (k % 7 === 0 ? 4 : 0)); g.stroke();
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 168, cy: 236, s: 10.4 });
+    env.stamp(g, S.bg);
+    /* a red heart balloon on a string from the right hand */
+    const hand = M.armTip(1), bx = hand[0] + 66 + sin(t * .9) * 7, by = max(56, hand[1] - 130 + cos(t * 1.1) * 4);
+    g.strokeStyle = P.paint; g.lineWidth = 1.1; g.beginPath(); g.moveTo(hand[0], hand[1]); g.quadraticCurveTo(hand[0] + 50, hand[1] - 40 + sin(t * 1.3) * 8, bx, by + 24); g.stroke();
+    for (const [grow, a] of [[5, .1], [2.5, .2], [0, 1]]) { g.fillStyle = CM.alpha(P.red, a); g.beginPath(); heart(g, bx, by, 26 + grow); g.fill(); }
+    /* overspray halo, then the cut: black body, a grey second layer on the tops, eyes left bare */
+    g.lineJoin = 'round';
+    for (const [grow, a] of [[-4.5, .08], [-2.2, .16]]) { g.fillStyle = CM.alpha(P.paint, a); g.beginPath(); for (const h of M.hulls) CM.path(g, CM.offsetPoly(h, grow)); g.fill(); }
+    g.fillStyle = P.paint; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
+    for (const f of M.faces) if (f.name === 'top' && abs(CM.area(f.pts)) > 60) CM.fillPoly(g, CM.offsetPoly(f.pts, 2.2), P.grey);
+    if (M.frontVis) { const hl = [M.F(-5.3, 8.4), M.F(5.3, 8.4), M.F(5.3, 7.8), M.F(-5.3, 7.8)]; CM.fillPoly(g, hl, P.grey); }
+    CM.drawEyes(g, M, { color: P.bare, glint: false });
+    /* drips under the feet */
+    g.strokeStyle = P.paint; g.fillStyle = P.paint; g.lineWidth = 1.6; g.lineCap = 'round';
+    M.feet.forEach((f, i) => { if (CM.hash(i + 470) < .35) return; const x = f[0] + (CM.hash(i + 471) - .5) * 5, L = 8 + CM.hash(i + 472) * 22; g.beginPath(); g.moveTo(x, f[1] - 2); g.lineTo(x, f[1] + L); g.stroke(); g.beginPath(); g.arc(x, f[1] + L, 1.7, 0, TAU); g.fill(); });
+    CM.drawStars(g, M, true, { fill: P.red, ink: P.paint });
+    CM.drawZzz(g, M, { color: P.paint, font: CM.FONT.grotesk });
+  },
+});
+}
+
+/* ═════════ 48 · Patch (embroidered, 2020s) ═════════ */
+{
+const P = { denim: '#2f5a91', twillL: 'rgba(110,150,200,.45)', twillD: 'rgba(15,35,70,.45)', seam: '#264c7c', thread: '#d99a3a', border: '#7c2a20', borderL: '#b04a36', label: '#efe6d2',
+  top: '#f4ae86', front: '#e06a42', side: '#a9472d', leg: '#c95a38', legDark: '#93402a' };
+const ANG = { front: .95, top: .15, left: -.55, right: -.55, back: -.55, bottom: .2 };
+CM.style({
+  id: 'spatch', n: 48, title: 'Patch', caption: 'Embroidered, 2020s',
+  init(env) {
+    return { bg: env.layer(g => {
+      ground(g, P.denim, '#a9c4e4', 48, { amt: .2, grainA: .25, grain: 4000 });
+      const sq = [[0, 0], [400, 0], [400, 400], [0, 400]];
+      CM.hatch(g, sq, -1.05, 2.6, .8, { color: P.twillL }); CM.hatch(g, sq, -1.05, 5.2, .9, { color: P.twillD });
+      g.fillStyle = P.seam; g.fillRect(350, 0, 24, 400); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(350, 0, 2, 400);
+      g.strokeStyle = P.thread; g.lineWidth = 1.4; g.setLineDash([5, 3]); for (const x of [356, 368]) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 400); g.stroke(); } g.setLineDash([]);
+      g.save(); g.translate(276, 352); g.rotate(-.04);
+      g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(-58, -15, 120, 34); g.fillStyle = P.label; g.fillRect(-60, -17, 120, 34);
+      g.strokeStyle = '#b8352a'; g.lineWidth = .7; g.setLineDash([2, 2]); g.strokeRect(-56, -13, 112, 26); g.setLineDash([]);
+      g.fillStyle = '#b8352a'; g.textAlign = 'center'; g.font = `800 11px ${CM.FONT.grotesk}`; CM.spaced(g, 'TERMINAL', 0, 1, 2.6); g.font = `700 6.5px ${CM.FONT.grotesk}`; CM.spaced(g, 'SUPPLY CO. · NO. 48', 0, 10, 1);
+      g.restore();
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, M = CM.build(p, { cx: 176, cy: 196, s: 11 }), O = CM.outline(M, { res: 64 }), grown = O.map(o => CM.offsetPoly(o, -6));
+    env.stamp(g, S.bg);
+    g.lineJoin = 'round';
+    /* the patch sits proud of the denim, sewn down with a running stitch */
+    g.fillStyle = 'rgba(5,15,35,.45)'; g.beginPath(); for (const o of grown) CM.path(g, o.map(q => [q[0] + 2.5, q[1] + 3.5])); g.fill();
+    g.strokeStyle = 'rgba(230,215,180,.75)'; g.lineWidth = .8; g.setLineDash([3, 2.4]); g.beginPath(); for (const o of O) CM.path(g, CM.offsetPoly(o, -9.5)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = P.border; g.beginPath(); for (const o of grown) CM.path(g, o); g.fill();
+    /* satin stitch inside: each face laid in its own direction */
+    for (const f of M.faces) {
+      const c = tone(f, P), ang = f.part[0] === 'l' ? PI / 2 - .1 : f.part[0] === 'a' ? .4 : ANG[f.name];
+      CM.fillPoly(g, f.pts, CM.shade(c, .8)); CM.hatch(g, f.pts, ang, 2.1, 1.25, { color: CM.shade(c, 1.02 + .14 * f.light) });
+    }
+    strokeEdges(g, M, 'rgba(60,20,10,.4)', 1);
+    for (const e of M.eyes) if (e.vis) { if (e.poly) { CM.fillPoly(g, e.poly, '#1a1412'); CM.hatch(g, e.poly, PI / 2, 1.6, .7, { color: '#3a302c' }); } }
+    CM.drawEyes(g, M, { color: '#1a1412', glint: '#e8e2d6' });
+    /* the merrowed edge: a fat satin border stitched round the whole shape */
+    g.lineWidth = 9; g.setLineDash([1.1, 1.2]); g.strokeStyle = P.borderL; g.beginPath(); for (const o of O) CM.path(g, CM.offsetPoly(o, -2.5)); g.stroke(); g.setLineDash([]);
+    g.lineWidth = .8; g.strokeStyle = 'rgba(40,8,4,.6)'; g.beginPath(); for (const o of grown) CM.path(g, o); g.stroke();
+    CM.drawStars(g, M, true, { fill: P.thread, ink: P.border });
+    CM.drawZzz(g, M, { color: P.label, font: CM.FONT.grotesk });
   },
 });
 }
