@@ -722,9 +722,14 @@ function ground(g, base, blot, seed, o = {}) {
   L.g.putImageData(id, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(L.c, 0, 0, 400, 400);
   if (o.grain !== 0) { const r = CM.RNG(seed + 7); g.fillStyle = CM.alpha(blot, o.grainA || .18); for (let i = 0; i < (o.grain || 2600); i++) g.fillRect(r() * 400, r() * 400, r.range(.4, 1.3), r.range(.4, 1.3)); }
 }
-/* edges worth inking: silhouettes and creases, never hidden ones or the seams where a limb is glued on */
-const inkEdges = M => M.edges.filter(e => e.kind !== 'hidden' && !e.attached);
-function strokeEdges(g, M, color, lw) { g.strokeStyle = color; g.lineWidth = lw; g.lineCap = 'round'; g.beginPath(); for (const e of inkEdges(M)) { g.moveTo(e.a[0], e.a[1]); g.lineTo(e.b[0], e.b[1]); } g.stroke(); }
+/* paint Clawd part by part, back to front (M.order): fill(face) for each visible face, then line(part).
+   A part drawn later covers the lines of the parts behind it, so a leg's edges never show through the body. */
+function paintParts(M, fill, line) { for (const pt of M.order) { for (const f of pt.faces) if (f.vis) fill(f); if (line) line(pt); } }
+/* one part's edges worth inking: silhouettes and creases, never hidden ones or the seams where a limb is glued on */
+const inkEdges = pt => pt.edges.filter(e => e.kind !== 'hidden' && !e.attached);
+function strokeEdges(g, pt, color, lw) { g.strokeStyle = color; g.lineWidth = lw; g.lineCap = 'round'; g.beginPath(); for (const e of inkEdges(pt)) { g.moveTo(e.a[0], e.a[1]); g.lineTo(e.b[0], e.b[1]); } g.stroke(); }
+/* the whole figure's outer contour only: every hull stroked at double width, to be covered by the fills drawn next */
+function contour(g, M, color, lw) { g.lineJoin = 'round'; g.strokeStyle = color; g.lineWidth = lw * 2; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke(); }
 /* a 3×5 pixel font (sampler stitches, handheld LCD): five rows of three bits per glyph */
 const PIX = { A: '25755', B: '65656', C: '34443', D: '65556', E: '74647', F: '74644', G: '34553', H: '55755', I: '72227', J: '11152', K: '55655', L: '44447', M: '57755',
   N: '65555', O: '25552', P: '65644', Q: '25573', R: '65655', S: '34216', T: '72222', U: '55557', V: '55552', W: '55775', X: '55255', Y: '55222', Z: '71247',
@@ -794,15 +799,16 @@ CM.style({
     CM.drawStars(g, M, false, { fill: P.gold, ink: P.ink });
     /* flat earth pigments inside a dark contour, the way the tomb painters filled their outlines */
     g.lineJoin = 'round'; CM.unionOutline(g, M, 2.2, P.ink, P.front);
-    for (const f of M.faces) CM.fillPoly(g, f.pts, tone(f, P));
-    if (M.frontVis) {
+    paintParts(M, f => CM.fillPoly(g, f.pts, tone(f, P)), pt => {
+    if (pt.name === 'body' && M.frontVis) {
       /* a pleated linen kilt and a gold belt across the bottom of the front face */
       const kilt = [M.F(-6, 0), M.F(6, 0), M.F(6, 1.9), M.F(-6, 1.9)];
       CM.fillPoly(g, kilt, P.linen); g.strokeStyle = CM.alpha(P.ink, .35); g.lineWidth = .8; g.beginPath();
       for (let x = -5; x <= 5; x += 1.25) { const a = M.F(x, 0), b = M.F(x + .4, 1.9); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } g.stroke();
       CM.strokePoly(g, [M.F(-6, 1.9), M.F(6, 1.9)], P.gold, 2.4, false);
     }
-    strokeEdges(g, M, P.ink, 1.2);
+    strokeEdges(g, pt, P.ink, 1.2);
+    });
     /* eyes with a kohl line swept out towards the temples */
     for (const e of M.eyes) if (e.vis && e.poly) {
       const s = e.size; g.strokeStyle = P.ink; g.lineWidth = max(1.2, s * .2); g.lineCap = 'round';
@@ -1010,12 +1016,13 @@ CM.style({
     CM.drawStars(g, M, false, { fill: P.gold, ink: P.ink });
     /* bright pigment inside a fine black line, gold leaf on the top faces, lead-white highlights */
     g.lineJoin = 'round'; CM.unionOutline(g, M, 1.4, P.ink, P.front);
-    for (const f of M.faces) {
-      if (f.name === 'top') { const b = CM.bbox(f.pts); CM.fillPoly(g, f.pts, gold(g, b[0], b[1], b[2], b[3])); continue; }
+    paintParts(M, f => {
+      if (f.name === 'top') { const b = CM.bbox(f.pts); CM.fillPoly(g, f.pts, gold(g, b[0], b[1], b[2], b[3])); return; }
       CM.fillPoly(g, f.pts, CM.shade(tone(f, P), .86 + .2 * f.light));
-    }
-    if (M.frontVis) { g.strokeStyle = 'rgba(255,248,232,.7)'; g.lineWidth = 1.4; g.beginPath(); const a = M.F(-5.4, 8.4, .05), b = M.F(5.4, 8.4, .05); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
-    strokeEdges(g, M, P.ink, .9);
+    }, pt => {
+      if (pt.name === 'body' && M.frontVis) { g.strokeStyle = 'rgba(255,248,232,.7)'; g.lineWidth = 1.4; g.beginPath(); const a = M.F(-5.4, 8.4, .05), b = M.F(5.4, 8.4, .05); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+      strokeEdges(g, pt, P.ink, .9);
+    });
     CM.drawEyes(g, M, { color: P.ink, glint: P.white });
     CM.drawStars(g, M, true, { fill: P.gold, ink: P.ink });
     CM.drawZzz(g, M, { color: P.rubric, font: SERIF });
@@ -1054,15 +1061,12 @@ CM.style({
     /* the second pose, arms flung out, ghosted in behind as Leonardo did */
     const G = CM.build(Object.assign({}, p, { armL: .95, armR: .95 }), { cx: 200, cy: 246, s: 13.5 });
     g.strokeStyle = P.faint; g.lineWidth = .9; for (const k of ['armL', 'armR']) CM.strokePoly(g, G.parts[k].hull);
-    /* a pale wash, hatching on the shaded sides, then the pen line */
-    g.fillStyle = P.wash; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
-    for (const f of M.faces) {
-      if (f.light > .62) continue;
-      const gap = 2.4 + f.light * 4;
-      CM.hatch(g, f.pts, f.name === 'top' ? -.3 : 1.05, gap, .7, { color: P.ink, wobble: .5, seed: f.part.length, cross: f.light < .25 ? 1.2 : 0 });
-    }
-    g.fillStyle = P.ink;
-    for (const e of inkEdges(M)) CM.ink(g, CM.resample([e.a, e.b], 5), e.kind === 'sil' ? 1.6 : 1, e.a[0] * 3 + e.b[1], { amp: .5 });
+    /* part by part: a pale wash over the paper, hatching on the shaded sides, then the pen line */
+    paintParts(M, f => {
+      CM.fillPoly(g, f.pts, P.paper); CM.fillPoly(g, f.pts, P.wash);
+      if (f.light > .62) return;
+      CM.hatch(g, f.pts, f.name === 'top' ? -.3 : 1.05, 2.4 + f.light * 4, .7, { color: P.ink, wobble: .5, seed: f.part.length, cross: f.light < .25 ? 1.2 : 0 });
+    }, pt => { g.fillStyle = P.ink; for (const e of inkEdges(pt)) CM.ink(g, CM.resample([e.a, e.b], 5), e.kind === 'sil' ? 1.6 : 1, e.a[0] * 3 + e.b[1], { amp: .5 }); });
     CM.drawEyes(g, M, { color: P.ink, glint: P.paper, lw: 1.3 });
     /* the navel of the figure sits at the centre of the circle: a little compass prick */
     g.beginPath(); g.arc(200, 210, 1.6, 0, TAU); g.fill();
@@ -1176,8 +1180,7 @@ CM.style({
     /* Clawd, cut in flat blocks with a dark key line */
     CM.drawStars(g, M, false, { fill: '#f2c14e', ink: P.key });
     g.lineJoin = 'round'; CM.unionOutline(g, M, 1.8, P.key, P.front);
-    for (const f of M.faces) CM.fillPoly(g, f.pts, tone(f, P));
-    strokeEdges(g, M, P.key, .9);
+    paintParts(M, f => CM.fillPoly(g, f.pts, tone(f, P)), pt => strokeEdges(g, pt, P.key, .9));
     CM.drawEyes(g, M, { color: P.key, glint: P.foam });
     CM.drawStars(g, M, true, { fill: '#f2c14e', ink: P.key });
     CM.drawZzz(g, M, { color: P.key, font: CM.FONT.serif });
@@ -1285,13 +1288,12 @@ CM.style({
     g.fillStyle = P.red; fit(g, verb + '!', 200, 318, 34, 116, 500, DIDONE);
     g.fillStyle = P.ink; g.font = `italic 9px ${SERIF}`; g.fillText('without wires or tricks', 200, 333);
     /* two-colour woodcut: red pulled first and slightly off register, then the black key */
-    g.lineJoin = 'round'; g.fillStyle = P.paper; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
-    g.save(); g.translate(1.4, .9);
-    for (const f of M.faces) if (f.name === 'front' || (f.part[0] === 'a' && f.name !== 'top')) CM.fillPoly(g, f.pts, P.red);
-    g.restore();
-    for (const f of M.faces) if (f.name !== 'front' && f.name !== 'top' && f.part[0] !== 'a') CM.hatch(g, f.pts, .8, 2.2, .8, { color: P.ink });
-    g.strokeStyle = P.ink; g.lineWidth = 1.8; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke();
-    strokeEdges(g, M, P.ink, .8);
+    contour(g, M, P.ink, 1.8);
+    paintParts(M, f => {
+      CM.fillPoly(g, f.pts, P.paper);
+      if (f.name === 'front' || (f.part[0] === 'a' && f.name !== 'top')) { g.save(); g.translate(1.4, .9); CM.fillPoly(g, f.pts, P.red); g.restore(); }
+      else if (f.name !== 'top') CM.hatch(g, f.pts, .8, 2.2, .8, { color: P.ink });
+    }, pt => strokeEdges(g, pt, P.ink, .8));
     CM.drawEyes(g, M, { color: P.ink, glint: P.paper });
     CM.drawStars(g, M, true, { fill: P.red, ink: P.ink, r: 7 });
     CM.drawZzz(g, M, { color: P.ink, font: DIDONE });
@@ -1386,11 +1388,10 @@ CM.style({
     CM.drawStars(g, M, false, { fill: P.gold, ink: P.sky0 });
     /* streamline shading: every face a smooth vertical ramp, a fine gold edge round the whole */
     g.lineJoin = 'round'; CM.unionOutline(g, M, 1.3, P.gold, P.front);
-    for (const f of M.faces) {
+    paintParts(M, f => {
       const b = CM.bbox(f.pts), c = tone(f, P), G = g.createLinearGradient(0, b[1], 0, b[3] + .1);
       G.addColorStop(0, CM.shade(c, 1.18)); G.addColorStop(1, CM.shade(c, .72 + .2 * f.light)); CM.fillPoly(g, f.pts, G);
-    }
-    strokeEdges(g, M, CM.alpha(P.goldL, .55), .7);
+    }, pt => strokeEdges(g, pt, CM.alpha(P.goldL, .55), .7));
     CM.drawEyes(g, M, { color: P.sky0, glint: P.goldL });
     CM.drawStars(g, M, true, { fill: P.gold, ink: P.sky0 });
     CM.drawZzz(g, M, { color: P.cream, font: CM.FONT.deco });
@@ -1449,14 +1450,12 @@ CM.style({
     g.save(); g.translate(318, 168); g.scale(sc, sc); burst(g, 0, 0, 40, 11, 41); g.fillStyle = P.yellow; g.fill(); g.lineWidth = 2.5; g.strokeStyle = P.ink; g.stroke();
     g.rotate(-.12); g.fillStyle = P.red; g.font = `italic 900 23px ${GROT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeText('FIXED!', 0, 2); g.fillText('FIXED!', 0, 2); g.restore();
     g.textBaseline = 'alphabetic';
-    /* Clawd: flat colour plates printed slightly off the black key */
+    /* Clawd: the colour plate printed off the black key, peeking out past the contour */
     CM.drawStars(g, M, false, { fill: P.yellow, ink: P.ink });
-    g.save(); g.translate(1.6, 1.1);
-    g.fillStyle = P.front; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
-    for (const f of M.faces) { CM.fillPoly(g, f.pts, tone(f, P)); if (f.name !== 'front' && f.name !== 'top') CM.halftone(g, f.pts, 4.2, () => 1.2, PI / 4, CM.alpha(P.red, .7)); }
-    g.restore();
-    g.lineJoin = 'round'; g.strokeStyle = P.ink; g.lineWidth = 2.6; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke();
-    strokeEdges(g, M, P.ink, 1.3);
+    g.save(); g.translate(3.4, 2.4); g.fillStyle = P.front; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill(); g.restore();
+    contour(g, M, P.ink, 2.6);
+    paintParts(M, f => { CM.fillPoly(g, f.pts, tone(f, P)); if (f.name !== 'front' && f.name !== 'top') CM.halftone(g, f.pts, 4.2, () => 1.2, PI / 4, CM.alpha(P.red, .7)); },
+      pt => strokeEdges(g, pt, P.ink, 1.3));
     CM.drawEyes(g, M, { color: P.ink, glint: '#fff' });
     CM.drawStars(g, M, true, { fill: P.yellow, ink: P.ink });
     CM.drawZzz(g, M, { color: P.ink, font: GROT });
@@ -1532,14 +1531,13 @@ CM.style({
       const k = floor(t / 1.6), dx = (CM.hash(q * 31 + k) - .5) * 5, dy = (CM.hash(q * 17 + k + 9) - .5) * 4;
       g.save(); g.beginPath(); g.rect(qx + 2, qy + 2, 196, 196); g.clip();
       g.fillStyle = c.bg; g.fillRect(qx, qy, 200, 200);
-      g.save(); g.translate(dx, dy);
-      g.fillStyle = c.front; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.fill();
-      for (const f of M.faces) CM.fillPoly(g, f.pts, f.name === 'top' ? c.top : f.name === 'front' ? c.front : c.side);
-      for (const e of M.eyes) if (e.vis && e.poly) CM.fillPoly(g, CM.offsetPoly(e.poly, -2.2), c.eye);
-      g.restore();
-      /* the black key: a coarse halftone in the shadows, a thin contour, the eyes */
-      for (const f of M.faces) if (f.light < .55) CM.halftone(g, f.pts, 3.6, () => .5 + (.55 - f.light) * 2, PI / 4, INK);
-      g.lineJoin = 'round'; g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); for (const h of M.hulls) CM.path(g, h); g.stroke();
+      /* part by part, back to front: the colour screen drifted off, then the black key's halftone in the shadows */
+      contour(g, M, INK, 1.5);
+      paintParts(M, f => {
+        g.save(); g.translate(dx, dy); CM.fillPoly(g, f.pts, f.name === 'top' ? c.top : f.name === 'front' ? c.front : c.side); g.restore();
+        if (f.light < .55) CM.halftone(g, f.pts, 3.6, () => .5 + (.55 - f.light) * 2, PI / 4, INK);
+      });
+      g.save(); g.translate(dx, dy); for (const e of M.eyes) if (e.vis && e.poly) CM.fillPoly(g, CM.offsetPoly(e.poly, -2.2), c.eye); g.restore();
       CM.drawEyes(g, M, { color: INK, glint: false });
       CM.drawStars(g, M, true, { fill: c.top, ink: INK, r: 6 });
       CM.drawZzz(g, M, { color: INK, font: CM.FONT.grotesk });
@@ -1788,11 +1786,10 @@ CM.style({
     g.strokeStyle = 'rgba(230,215,180,.75)'; g.lineWidth = .8; g.setLineDash([3, 2.4]); g.beginPath(); for (const o of O) CM.path(g, CM.offsetPoly(o, -9.5)); g.stroke(); g.setLineDash([]);
     g.fillStyle = P.border; g.beginPath(); for (const o of grown) CM.path(g, o); g.fill();
     /* satin stitch inside: each face laid in its own direction */
-    for (const f of M.faces) {
+    paintParts(M, f => {
       const c = tone(f, P), ang = f.part[0] === 'l' ? PI / 2 - .1 : f.part[0] === 'a' ? .4 : ANG[f.name];
       CM.fillPoly(g, f.pts, CM.shade(c, .8)); CM.hatch(g, f.pts, ang, 2.1, 1.25, { color: CM.shade(c, 1.02 + .14 * f.light) });
-    }
-    strokeEdges(g, M, 'rgba(60,20,10,.4)', 1);
+    }, pt => strokeEdges(g, pt, 'rgba(60,20,10,.4)', 1));
     for (const e of M.eyes) if (e.vis) { if (e.poly) { CM.fillPoly(g, e.poly, '#1a1412'); CM.hatch(g, e.poly, PI / 2, 1.6, .7, { color: '#3a302c' }); } }
     CM.drawEyes(g, M, { color: '#1a1412', glint: '#e8e2d6' });
     /* the merrowed edge: a fat satin border stitched round the whole shape */
