@@ -499,13 +499,13 @@ function roundPoly(P, r) {
 }
 /* the jelly body hangs lower than the model's box: every bottom corner (y bit clear) is pushed down along its edge,
    so the body swallows the top of the legs and leaves short gummy stubs */
-/* SLIM squeezes the whole jelly sideways about its centre, so the longer body doesn't read as fat */
-const SLIM = .84, slim = (g, M) => { g.translate(M.center[0], 0); g.scale(SLIM, 1); g.translate(-M.center[0], 0); };
-const DROP = .13, FACE_IX = { front: [4, 5, 7, 6], back: [1, 0, 2, 3], right: [5, 1, 3, 7], left: [0, 4, 6, 2], top: [6, 7, 3, 2], bottom: [0, 1, 5, 4] };
+/* SLIM can squeeze the whole jelly sideways about its centre (1 = Clawd's own proportions) */
+const SLIM = 1, slim = (g, M) => { g.translate(M.center[0], 0); g.scale(SLIM, 1); g.translate(-M.center[0], 0); };
+const DROP = .03, FACE_IX = { front: [4, 5, 7, 6], back: [1, 0, 2, 3], right: [5, 1, 3, 7], left: [0, 4, 6, 2], top: [6, 7, 3, 2], bottom: [0, 1, 5, 4] };
 const bodyPts = pt => pt.s.map((q, i) => i & 2 ? [q[0], q[1]] : [q[0] + (q[0] - pt.s[i + 2][0]) * DROP, q[1] + (q[1] - pt.s[i + 2][1]) * DROP]);
 const roundHull = pt => {
   const H = pt.name === 'body' ? CM.hull(bodyPts(pt)) : pt.hull, bb = bbox(H), m = min(bb[2] - bb[0], bb[3] - bb[1]);
-  return roundPoly(H, pt.name === 'body' ? m * .38 : m * .5);
+  return roundPoly(H, pt.name === 'body' ? m * .24 : m * .5);
 };
 function wobble(P, c, amp, t) {
   if (amp < .05) return P;
@@ -523,8 +523,9 @@ function hip(pt) {
   const tc = centroid([2, 3, 6, 7].map(i => pt.s[i])), bc = centroid([0, 1, 4, 5].map(i => pt.s[i]));
   const L = hypot(bc[0] - tc[0], bc[1] - tc[1]) || 1, u = [(bc[0] - tc[0]) / L, (bc[1] - tc[1]) / L], n = [-u[1], u[0]];
   let hw = 0; for (const q of pt.s) hw = max(hw, abs((q[0] - tc[0]) * n[0] + (q[1] - tc[1]) * n[1]));
+  const D = CM.DIM, fb = (.45 + DROP * D.BH) / (D.LH + .45);
   const at = (along, side) => [tc[0] + u[0] * along + n[0] * side, tc[1] + u[1] * along + n[1] * side];
-  const H = CM.hull([at(L * .1, -hw), at(L * .1, hw), at(L * .4, -hw * 1.45), at(L * .4, hw * 1.45), at(L * .72, -hw * .95), at(L * .72, hw * .95)]);
+  const H = CM.hull([at(L * (fb - .3), -hw), at(L * (fb - .3), hw), at(L * fb, -hw * 1.35), at(L * fb, hw * 1.35), at(L * (fb + .3), -hw * .95), at(L * (fb + .3), hw * .95)]);
   return roundPoly(H, hw * .7);
 }
 function shapes(M, amp, t) {
