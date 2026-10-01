@@ -1,6 +1,6 @@
-# Clawd in Twenty-Eight Art Styles
+# Clawd in Twenty-Nine Art Styles
 
-Clawd, the Claude Code mascot, drawn live in twenty-eight art styles: from the cave wall to the lapel pin, and a few experiments beyond. Every line is drawn by code in your browser, with no images and no dependencies.
+Clawd, the Claude Code mascot, drawn live in twenty-nine art styles: from the cave wall to the lapel pin, and a few experiments beyond. Every line is drawn by code in your browser, with no images and no dependencies.
 
 Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/artifact/TrrKcRKsCUtAFYzyhF6tDH).
 
@@ -12,12 +12,13 @@ Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/ar
 <tr><td align="center"><img src="media/popart.gif" width="200" alt="Clawd, Pop Art"><br><sub><b>17</b> Pop Art</sub></td><td align="center"><img src="media/pixel.gif" width="200" alt="Clawd, Pixel Art"><br><sub><b>18</b> Pixel Art</sub></td><td align="center"><img src="media/contour.gif" width="200" alt="Clawd, Contour Map"><br><sub><b>19</b> Contour Map</sub></td><td align="center"><img src="media/pin.gif" width="200" alt="Clawd, Enamel Pin"><br><sub><b>20</b> Enamel Pin</sub></td></tr>
 <tr><td align="center"><img src="media/eatlas.gif" width="200" alt="Clawd, Atlas Glyph Tiles"><br><sub><b>21</b> Atlas Glyph Tiles</sub></td><td align="center"><img src="media/eblob.gif" width="200" alt="Clawd, Blob Mosaic"><br><sub><b>22</b> Blob Mosaic</sub></td><td align="center"><img src="media/ephosphor.gif" width="200" alt="Clawd, Phosphor Streams"><br><sub><b>23</b> Phosphor Streams</sub></td><td align="center"><img src="media/edensity.gif" width="200" alt="Clawd, Density Portrait"><br><sub><b>24</b> Density Portrait</sub></td></tr>
 <tr><td align="center"><img src="media/efield.gif" width="200" alt="Clawd, Density Field"><br><sub><b>25</b> Density Field</sub></td><td align="center"><img src="media/eteletext.gif" width="200" alt="Clawd, Teletext Page"><br><sub><b>26</b> Teletext Page</sub></td><td align="center"><img src="media/emaze.gif" width="200" alt="Clawd, Maze War"><br><sub><b>27</b> Maze War</sub></td><td align="center"><img src="media/epoem.gif" width="200" alt="Clawd, Code Poem"><br><sub><b>28</b> Code Poem</sub></td></tr>
+<tr><td align="center"><img src="media/eaero.gif" width="200" alt="Clawd, Frutiger Aero"><br><sub><b>29</b> Frutiger Aero</sub></td></tr>
 </table>
 
 ## Credits
 
 - **Art styles 1–20 and the whole engine** (the 3D mascot model, the rig that watches your cursor, the gallery): [ChetasLua](https://github.com/ChetasLua), from the original [*Clawd in Twenty Styles*](https://claude.ai/artifact/TrrKcRKsCUtAFYzyhF6tDH).
-- **Art styles 21–28** (`henrik-styles.js`): Henrik's experiments, eight looks from an upcoming project, re-drawn around Clawd. Only the look carries over.
+- **Art styles 21–29** (`henrik-styles.js`): Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd. Only the look carries over.
 
 | # | Art style | After |
 |---|---|---|
@@ -29,6 +30,7 @@ Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/ar
 | 26 | Teletext Page | Goto80's *Datagården* |
 | 27 | Maze War | Maze War on the Xerox Alto |
 | 28 | Code Poem | Kerr & Holden's *cold_cloud.cc*: the picture is made of letters taken from its own source code |
+| 29 | Frutiger Aero | the glossy jelly avatars of *Frutiger Space* and *Frutiger Sanctuary*, after mid-2000s Frutiger Aero: sky swooshes, wind turbines, soap bubbles |
 
 ## Running it
 
