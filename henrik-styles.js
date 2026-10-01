@@ -497,7 +497,14 @@ function roundPoly(P, r) {
   }
   return out;
 }
-const roundHull = pt => { const bb = bbox(pt.hull), m = min(bb[2] - bb[0], bb[3] - bb[1]); return roundPoly(pt.hull, pt.name === 'body' ? m * .38 : m * .5); };
+/* the jelly body hangs lower than the model's box: every bottom corner (y bit clear) is pushed down along its edge,
+   so the body swallows the top of the legs and leaves short gummy stubs */
+const DROP = .13, FACE_IX = { front: [4, 5, 7, 6], back: [1, 0, 2, 3], right: [5, 1, 3, 7], left: [0, 4, 6, 2], top: [6, 7, 3, 2], bottom: [0, 1, 5, 4] };
+const bodyPts = pt => pt.s.map((q, i) => i & 2 ? [q[0], q[1]] : [q[0] + (q[0] - pt.s[i + 2][0]) * DROP, q[1] + (q[1] - pt.s[i + 2][1]) * DROP]);
+const roundHull = pt => {
+  const H = pt.name === 'body' ? CM.hull(bodyPts(pt)) : pt.hull, bb = bbox(H), m = min(bb[2] - bb[0], bb[3] - bb[1]);
+  return roundPoly(H, pt.name === 'body' ? m * .38 : m * .5);
+};
 function wobble(P, c, amp, t) {
   if (amp < .05) return P;
   return P.map(q => { const a = Math.atan2(q[1] - c[1], q[0] - c[0]), k = 1 + amp * .011 * sin(a * 3 + t * 15) + amp * .006 * sin(a * 5 - t * 11); return [c[0] + (q[0] - c[0]) * k, c[1] + (q[1] - c[1]) * k]; });
@@ -515,7 +522,7 @@ function hip(pt) {
   const L = hypot(bc[0] - tc[0], bc[1] - tc[1]) || 1, u = [(bc[0] - tc[0]) / L, (bc[1] - tc[1]) / L], n = [-u[1], u[0]];
   let hw = 0; for (const q of pt.s) hw = max(hw, abs((q[0] - tc[0]) * n[0] + (q[1] - tc[1]) * n[1]));
   const at = (along, side) => [tc[0] + u[0] * along + n[0] * side, tc[1] + u[1] * along + n[1] * side];
-  const H = CM.hull([at(-L * .25, -hw), at(-L * .25, hw), at(L * .06, -hw * 1.45), at(L * .06, hw * 1.45), at(L * .42, -hw * .95), at(L * .42, hw * .95)]);
+  const H = CM.hull([at(L * .1, -hw), at(L * .1, hw), at(L * .4, -hw * 1.45), at(L * .4, hw * 1.45), at(L * .72, -hw * .95), at(L * .72, hw * .95)]);
   return roundPoly(H, hw * .7);
 }
 function shapes(M, amp, t) {
@@ -544,10 +551,11 @@ function jelly(g, M, S, t, env) {
   gr = j.createRadialGradient(c[0] + bw * .05, c[1] + bh * .12, 0, c[0], c[1] + bh * .1, max(bw, bh) * .55);
   gr.addColorStop(0, 'rgba(255,215,110,.4)'); gr.addColorStop(.6, 'rgba(255,180,70,.1)'); gr.addColorStop(1, 'rgba(255,190,90,0)'); j.fillStyle = gr; j.fillRect(all[0], all[1], w, h);
   /* the body's faces, rounded and faint, so the turn still reads */
+  const BS = bodyPts(body);
   for (const f of body.faces) {
     if (!f.vis || f.name === 'front') continue; const fb = bbox(f.pts), fm = min(fb[2] - fb[0], fb[3] - fb[1]); if (fm < 2) continue;
     j.fillStyle = f.name === 'top' ? 'rgba(255,238,200,.3)' : f.name === 'bottom' ? 'rgba(150,40,0,.2)' : `rgba(170,50,5,${(.22 * (1 - f.light)).toFixed(3)})`;
-    j.beginPath(); path(j, wobble(roundPoly(f.pts, fm * .45), c, S.jig, t), true); j.fill();
+    j.beginPath(); path(j, wobble(roundPoly(FACE_IX[f.name].map(i => BS[i]), fm * .45), c, S.jig, t), true); j.fill();
   }
   /* a soft crease where a nub sits in front of the body */
   for (const pt of M.order.slice(M.order.indexOf(body) + 1)) if (pt.name[0] === 'a') { j.strokeStyle = 'rgba(175,55,5,.22)'; j.lineWidth = m * .03; j.beginPath(); path(j, wobble(roundHull(pt), c, S.jig, t), true); j.stroke(); }
@@ -580,7 +588,7 @@ function jelly(g, M, S, t, env) {
   j.beginPath(); j.ellipse(bb[0] + bw * .25, bb[1] + bh * .19, bw * .085, bh * .05, -.5, 0, TAU); j.fill();
   for (const pt of M.order) {
     if (pt === body) continue; const q = bbox(pt.s), lw = q[2] - q[0], lh = q[3] - q[1], leg = pt.name[0] === 'l';
-    const x = q[0] + lw * .32, y = leg ? q[1] + lh * .66 : q[1] + lh * .28;
+    const x = q[0] + lw * .32, y = leg ? q[1] + lh * .8 : q[1] + lh * .28;
     if (CM.inPoly(x, y, BP)) continue;
     j.globalAlpha = .85; j.beginPath(); j.ellipse(x, y, max(1, lw * .13), max(1.2, lh * (leg ? .13 : .1)), leg ? 0 : -.5, 0, TAU); j.fill();
   }
