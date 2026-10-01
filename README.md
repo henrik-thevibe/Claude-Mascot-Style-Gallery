@@ -60,4 +60,4 @@ CM.style({ id, n, title, caption, init(env) { return state; }, draw(g, env, rig,
 
 ## License
 
-[MIT](LICENSE), covering the code in this repository. Clawd himself and the Claude name belong to Anthropic; this is unofficial fan art and the license grants no rights to the character or marks.
+[MIT](LICENSE), covering the code in this repository. The Clawd character and the Claude name belong to Anthropic; this is unofficial fan art and the license grants no rights to the character or marks.
