@@ -57,3 +57,7 @@ CM.style({ id, n, title, caption, init(env) { return state; }, draw(g, env, rig,
 ```
 
 `CM.build(rig.pose, view)` returns the projected mascot (faces, eyes, hulls), and `CM.raster(M, cols, rows)` turns it into a grid of cells. The gallery shows every registered style in order of `n`.
+
+## License
+
+[MIT](LICENSE), covering the code in this repository. Clawd himself and the Claude name belong to Anthropic; this is unofficial fan art and the license grants no rights to the character or marks.
