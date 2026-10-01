@@ -1,5 +1,6 @@
 // Records one looping GIF per style into media/ for the README.
 // Usage: python -m http.server 8790 & node tools/record-gifs.mjs   (needs playwright + ffmpeg)
+//        IDS=stomb,smosaic node tools/record-gifs.mjs   records only those styles
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 import { execFileSync } from 'node:child_process';
@@ -8,7 +9,8 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 const BASE = process.env.BASE || 'http://localhost:8790/', SIZE = 200, FPS = 15, OUT = 'media';
 const browser = await chromium.launch(), page = await browser.newPage();
 await page.goto(BASE + '?solo=cave&size=' + SIZE); await page.waitForFunction(() => window.__READY);
-const ids = await page.evaluate(() => window.CM.styles.slice().sort((a, b) => a.n - b.n).map(s => s.id));
+const only = process.env.IDS ? process.env.IDS.split(',') : null;
+const ids = (await page.evaluate(() => window.CM.styles.slice().sort((a, b) => a.n - b.n).map(s => s.id))).filter(id => !only || only.includes(id));
 mkdirSync(OUT, { recursive: true });
 
 for (const id of ids) {
