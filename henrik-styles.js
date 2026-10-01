@@ -1,6 +1,7 @@
-/* Clawd in Forty-Eight Styles — henrik-styles.js
+/* Clawd in Fifty-One Styles — henrik-styles.js
    Styles 21–29: Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd.
    Styles 30–48: after the plates of “Superman in Flight”, nineteen looks from tomb plaster to embroidery.
+   Styles 49–51: a Y2K trio, liquid chrome, a media player skin and a holo foil sticker.
    Only the look is carried over.
    Same contract as every other style: CM.style({ id, n, title, caption, init(env), draw(g, env, rig, state) }),
    drawing into a virtual 400×400 tile. Load after core.js and before page.js. */
@@ -1797,6 +1798,269 @@ CM.style({
     g.lineWidth = .8; g.strokeStyle = 'rgba(40,8,4,.6)'; g.beginPath(); for (const o of grown) CM.path(g, o); g.stroke();
     CM.drawStars(g, M, true, { fill: P.thread, ink: P.border });
     CM.drawZzz(g, M, { color: P.label, font: CM.FONT.grotesk });
+  },
+});
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   49–51 · Y2K: chrome, skins and foil, the turn of the millennium in three looks.
+   ═════════════════════════════════════════════════════════════════════════════ */
+/* a four-point sparkle with a soft halo */
+function sparkle(g, x, y, r, color = '#ffffff', glow = 'rgba(255,255,255,.55)') {
+  if (r < .3) return;
+  const gr = g.createRadialGradient(x, y, 0, x, y, r * 1.3); gr.addColorStop(0, glow); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 1.3, 0, TAU); g.fill();
+  g.fillStyle = color; g.beginPath();
+  for (let i = 0; i < 8; i++) { const a = i * PI / 4 - PI / 2, q = i & 1 ? r * .16 : r; g.lineTo(x + cos(a) * q, y + sin(a) * q); }
+  g.closePath(); g.fill();
+}
+
+/* ═════════ 49 · Liquid Chrome (millennium chrome, 1999) ═════════ */
+{
+const HOR = 268;
+/* each face reflects a sky over an orange desert: its normal sets where the horizon falls across it,
+   so faces turned up show sky, faces turned down show ground, and the line slides as Clawd turns */
+function chrome(g, f) {
+  const bb = CM.bbox(f.pts), n = f.n, h = CM.clamp(.5 + n[1] * .42 - n[0] * .12, .06, .94);
+  const gr = g.createLinearGradient(bb[0] + (bb[2] - bb[0]) * .2, bb[1], bb[0] + (bb[2] - bb[0]) * .35, bb[3]);
+  gr.addColorStop(0, '#2d5fc4'); gr.addColorStop(h * .55, '#8fd2ff'); gr.addColorStop(h * .9, '#eefaff'); gr.addColorStop(h, '#ffffff');
+  gr.addColorStop(min(1, h + .015), '#3a1b2e'); gr.addColorStop(min(1, h + .1), '#a9461c'); gr.addColorStop(1, '#ffc27a');
+  CM.fillPoly(g, f.pts, gr);
+  const k = (1 - f.light) * .45; if (k > .01) CM.fillPoly(g, f.pts, `rgba(20,10,60,${k.toFixed(3)})`);
+}
+function word(g, str, x, y, size) {
+  g.save(); g.font = `italic 900 ${size}px ${CM.FONT.sans}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+  for (let d = 6; d > 0; d--) { g.fillStyle = d > 1 ? '#3b136b' : '#7a2fd0'; g.fillText(str, x + d * .6, y + d * .8); }
+  g.lineWidth = 5; g.strokeStyle = '#140829'; g.strokeText(str, x, y);
+  const G = g.createLinearGradient(0, y - size * .8, 0, y);
+  G.addColorStop(0, '#ffffff'); G.addColorStop(.42, '#a9dcff'); G.addColorStop(.5, '#24346e'); G.addColorStop(.58, '#c86a2c'); G.addColorStop(.85, '#ffd9a8'); G.addColorStop(1, '#ffffff');
+  g.fillStyle = G; g.fillText(str, x, y);
+  g.lineWidth = 1; g.strokeStyle = 'rgba(255,255,255,.8)'; g.strokeText(str, x, y);
+  g.restore();
+}
+/* a turning wireframe globe */
+function globe(g, x, y, r, t) {
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1;
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
+  for (let k = -2; k <= 2; k++) { const la = k * PI / 6, yy = y - sin(la) * r, rr = cos(la) * r; g.beginPath(); g.ellipse(x, yy, rr, rr * .22, 0, 0, TAU); g.stroke(); }
+  for (let k = 0; k < 6; k++) { const a = (k * PI / 6 + t * .4) % PI, rx = abs(cos(a)) * r; g.beginPath(); g.ellipse(x, y, rx, r, 0, 0, TAU); g.stroke(); }
+  g.restore();
+}
+CM.style({
+  id: 'schrome', n: 49, title: 'Liquid Chrome', caption: 'Millennium chrome, 1999',
+  init(env) {
+    const r = CM.RNG(49);
+    return {
+      stars: Array.from({ length: 12 }, () => ({ x: r.range(16, 384), y: r.range(16, 250), r: r.range(5, 11), ph: r() * TAU, v: r.range(1.2, 2.4) })),
+      bg: env.layer(g => {
+        /* an iridescent sky: pink → lilac → cyan, with soft pools of colour */
+        let G = g.createLinearGradient(0, 0, 400, HOR); G.addColorStop(0, '#ffb8ec'); G.addColorStop(.35, '#cdb4ff'); G.addColorStop(.7, '#9eeaff'); G.addColorStop(1, '#f2fdff');
+        g.fillStyle = G; g.fillRect(0, 0, 400, HOR);
+        for (const [x, y, rr, c] of [[60, 220, 140, '255,140,220'], [330, 40, 160, '120,240,255'], [210, 120, 120, '255,255,255']]) {
+          G = g.createRadialGradient(x, y, 0, x, y, rr); G.addColorStop(0, `rgba(${c},.45)`); G.addColorStop(1, `rgba(${c},0)`); g.fillStyle = G; g.fillRect(0, 0, 400, HOR);
+        }
+        /* the floor: a violet void with a magenta grid running to the horizon */
+        G = g.createLinearGradient(0, HOR, 0, 400); G.addColorStop(0, '#2a0f5c'); G.addColorStop(1, '#0b0420'); g.fillStyle = G; g.fillRect(0, HOR, 400, 140);
+        g.save(); g.beginPath(); g.rect(0, HOR, 400, 140); g.clip(); g.lineWidth = 1.2;
+        for (let i = -14; i <= 14; i++) { g.strokeStyle = 'rgba(255,90,230,.7)'; g.beginPath(); g.moveTo(200, HOR); g.lineTo(200 + i * 60, 400 + 300); g.stroke(); }
+        for (let z = 1; z < 30; z *= 1.32) { const y = HOR + 132 / z; g.strokeStyle = `rgba(110,230,255,${(.85 / sqrt(z)).toFixed(3)})`; g.beginPath(); g.moveTo(0, y); g.lineTo(400, y); g.stroke(); }
+        g.restore();
+        G = g.createLinearGradient(0, HOR - 10, 0, HOR + 10); G.addColorStop(0, 'rgba(255,255,255,0)'); G.addColorStop(.5, 'rgba(255,255,255,.95)'); G.addColorStop(1, 'rgba(255,120,240,0)');
+        g.fillStyle = G; g.fillRect(0, HOR - 10, 400, 20);
+      }),
+    };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 204, s: 12.5 });
+    env.stamp(g, S.bg);
+    globe(g, 334, 74, 40, t);
+    for (const s of S.stars) { const k = max(0, sin(t * s.v + s.ph)); sparkle(g, s.x, s.y, s.r * k * k); }
+    CM.drawShadow(g, M, 'rgba(255,80,230,.45)');
+    CM.drawStars(g, M, false, { fill: '#eef8ff', ink: '#3b136b' });
+    contour(g, M, '#140829', 1.6);
+    paintParts(M, f => chrome(g, f), pt => strokeEdges(g, pt, 'rgba(255,255,255,.75)', .9));
+    CM.drawEyes(g, M, { color: '#0c0718', glint: '#ffffff' });
+    /* a glint that runs round the rim */
+    const H = M.parts.body.hull, u = (t * .25) % 1, i = floor(u * H.length), a = H[i], b = H[(i + 1) % H.length], w = u * H.length - i;
+    sparkle(g, a[0] + (b[0] - a[0]) * w, a[1] + (b[1] - a[1]) * w, 10 + 3 * sin(t * 5));
+    CM.drawStars(g, M, true, { fill: '#eef8ff', ink: '#3b136b' });
+    CM.drawZzz(g, M, { color: '#ffffff', font: CM.FONT.sans });
+    word(g, 'CLAWD 2K', 200, 372, 50);
+  },
+});
+}
+
+/* ═════════ 50 · Media Player Skin (player skin, 2001) ═════════ */
+{
+const P = { top: '#ff9a4d', front: '#f06a14', side: '#b8460a', leg: '#e0600f', legDark: '#a83f08' };
+const SCR = [54, 74, 346, 262], LCD = [54, 272, 262, 300], CLK = [270, 272, 346, 300], BARS = 16;
+const rr = (g, x0, y0, x1, y1, r) => { g.beginPath(); g.roundRect(x0, y0, x1 - x0, y1 - y0, r); };
+/* the skin: a brushed-silver slab with a round knob pod bulging out on the left */
+function skinPath(g) { g.beginPath(); g.roundRect(30, 30, 344, 344, 26); g.moveTo(66, 200); g.arc(36, 200, 32, 0, TAU); }
+function bevel(g, x0, y0, x1, y1, r, inset) {
+  const G = g.createLinearGradient(0, y0, 0, y1);
+  G.addColorStop(0, inset ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.95)'); G.addColorStop(1, inset ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.35)');
+  g.strokeStyle = G; g.lineWidth = 2; rr(g, x0, y0, x1, y1, r); g.stroke();
+}
+function button(g, x, y, w, h, glyph) {
+  const G = g.createLinearGradient(0, y, 0, y + h); G.addColorStop(0, '#f7f9fc'); G.addColorStop(.5, '#c3cad6'); G.addColorStop(1, '#8e98a8');
+  g.fillStyle = G; rr(g, x, y, x + w, y + h, 6); g.fill(); bevel(g, x, y, x + w, y + h, 6, false);
+  g.fillStyle = '#1d2840'; g.font = `700 11px ${CM.FONT.grotesk}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(glyph, x + w / 2, y + h / 2 + 1);
+}
+CM.style({
+  id: 'sskin', n: 50, title: 'Media Player Skin', caption: 'Player skin, 2001',
+  init(env) {
+    return { peaks: new Float32Array(BARS), bg: env.layer(g => {
+      /* the desktop behind */
+      let G = g.createLinearGradient(0, 0, 400, 400); G.addColorStop(0, '#0f2a6b'); G.addColorStop(1, '#2a0d4f'); g.fillStyle = G; g.fillRect(0, 0, 400, 400);
+      g.fillStyle = 'rgba(0,0,0,.4)'; g.save(); g.translate(5, 7); skinPath(g); g.fill(); g.restore();
+      /* brushed metal */
+      G = g.createLinearGradient(0, 30, 0, 374); G.addColorStop(0, '#eef1f5'); G.addColorStop(.45, '#b3bcc8'); G.addColorStop(.55, '#c9d0da'); G.addColorStop(1, '#8f99a8');
+      g.fillStyle = G; skinPath(g); g.fill();
+      g.save(); skinPath(g); g.clip(); const r = CM.RNG(50);
+      for (let y = 30; y < 376; y += .9) { g.fillStyle = r() < .5 ? `rgba(255,255,255,${r.range(.05, .2).toFixed(3)})` : `rgba(40,50,70,${r.range(.03, .12).toFixed(3)})`; g.fillRect(0, y, 400, .5); }
+      g.restore();
+      g.lineWidth = 2.5; g.strokeStyle = '#4b5566'; skinPath(g); g.stroke();
+      /* the volume knob in its pod */
+      G = g.createRadialGradient(30, 192, 2, 36, 200, 22); G.addColorStop(0, '#ffffff'); G.addColorStop(1, '#7d8798'); g.fillStyle = G; g.beginPath(); g.arc(36, 200, 20, 0, TAU); g.fill();
+      g.strokeStyle = '#3b4454'; g.lineWidth = 1.5; g.stroke();
+      /* title bar */
+      G = g.createLinearGradient(0, 38, 0, 62); G.addColorStop(0, '#6fa4ff'); G.addColorStop(.5, '#2456c4'); G.addColorStop(1, '#173a8c');
+      g.fillStyle = G; rr(g, 46, 38, 354, 62, 12); g.fill(); bevel(g, 46, 38, 354, 62, 12, false);
+      g.fillStyle = '#ffffff'; g.font = `italic 900 13px ${CM.FONT.sans}`; g.textAlign = 'left'; g.textBaseline = 'middle'; CM.spaced(g, 'CLAWDAMP 2.0', 60, 51, 1.5, 'left');
+      for (const [x, c] of [[300, '_'], [318, '□'], [336, '×']]) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(x, 50, 7, 0, TAU); g.fill(); g.fillStyle = '#173a8c'; g.font = `800 10px ${CM.FONT.grotesk}`; g.textAlign = 'center'; g.fillText(c, x, c === '_' ? 47 : 51); }
+      /* screen, LCD and clock wells */
+      for (const [x0, y0, x1, y1] of [SCR, LCD, CLK]) { g.fillStyle = '#05070d'; rr(g, x0, y0, x1, y1, 8); g.fill(); bevel(g, x0 - 1, y0 - 1, x1 + 1, y1 + 1, 9, true); }
+      /* spectrum well and transport */
+      g.fillStyle = '#05070d'; rr(g, 54, 308, 214, 346, 6); g.fill(); bevel(g, 53, 307, 215, 347, 7, true);
+      ['◀◀', '▶', '❚❚', '■', '▶▶'].forEach((c, i) => button(g, 222 + i * 25, 312, 22, 28, c));
+      /* seek bar */
+      g.fillStyle = '#4b5566'; rr(g, 54, 356, 346, 362, 3); g.fill();
+    }) };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 160, s: 8.6 });
+    env.stamp(g, S.bg);
+    /* the visualiser: drifting plasma behind Clawd, scanlines over */
+    g.save(); rr(g, ...SCR, 8); g.clip();
+    g.globalCompositeOperation = 'lighter';
+    for (const [c, k] of [['60,90,255', 0], ['200,40,255', 2.1], ['0,220,255', 4.2]]) {
+      const x = 200 + cos(t * .7 + k) * 110, y = 168 + sin(t * .9 + k * 1.3) * 60, G = g.createRadialGradient(x, y, 0, x, y, 120);
+      G.addColorStop(0, `rgba(${c},.55)`); G.addColorStop(1, `rgba(${c},0)`); g.fillStyle = G; g.fillRect(SCR[0], SCR[1], 292, 188);
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.strokeStyle = 'rgba(120,255,200,.6)'; g.lineWidth = 1.5; g.beginPath();
+    for (let x = SCR[0]; x <= SCR[2]; x += 3) g.lineTo(x, 236 + sin(x * .09 + t * 6) * 6 * sin(x * .013 + t));
+    g.stroke();
+    CM.drawShadow(g, M, 'rgba(0,0,0,.45)');
+    CM.drawStars(g, M, false, { fill: '#ffe27a', ink: '#1d2840' });
+    contour(g, M, '#1a0a02', 1.3);
+    /* glossy orange plastic: a hot band near the top of every face */
+    paintParts(M, f => {
+      const c = tone(f, P), bb = CM.bbox(f.pts), G = g.createLinearGradient(bb[0], bb[1], bb[2], bb[3]), k = .75 + .3 * f.light;
+      G.addColorStop(0, CM.shade(c, k * 1.05)); G.addColorStop(.2, CM.shade(c, 1.45)); G.addColorStop(.3, CM.shade(c, k * 1.05)); G.addColorStop(1, CM.shade(c, k * .8));
+      CM.fillPoly(g, f.pts, G);
+    }, pt => strokeEdges(g, pt, 'rgba(60,20,0,.55)', .8));
+    CM.drawEyes(g, M, { color: '#140804', glint: '#ffffff' });
+    CM.drawStars(g, M, true, { fill: '#ffe27a', ink: '#1d2840' });
+    CM.drawZzz(g, M, { color: '#bff7ff', font: MONO });
+    g.fillStyle = 'rgba(0,0,0,.22)'; for (let y = SCR[1]; y < SCR[3]; y += 3) g.fillRect(SCR[0], y, 292, 1);
+    g.restore();
+    /* LCD marquee and clock */
+    const secs = 42 + floor(t), clock = String(floor(secs / 60)).padStart(2, '0') + ':' + String(secs % 60).padStart(2, '0');
+    g.save(); rr(g, LCD[0] + 4, LCD[1], LCD[2] - 4, LCD[3], 6); g.clip();
+    g.font = `700 14px ${MONO}`; g.textBaseline = 'middle'; g.textAlign = 'left';
+    const msg = '▶ 01. clawd_theme.mp3 (3:07) *** 128kbps *** ', w = g.measureText(msg).width, x0 = LCD[0] + 8 - (t * 34) % w;
+    for (const [c, d] of [['rgba(60,255,120,.35)', 1], ['#5cff8c', 0]]) { g.fillStyle = c; g.fillText(msg + msg, x0 + d, LCD[1] + 15); }
+    g.restore();
+    g.font = `700 17px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(60,255,120,.35)'; g.fillText(clock, 309, 287); g.fillStyle = '#5cff8c'; g.fillText(clock, 308, 286);
+    /* spectrum analyser: it jumps when Clawd dances or hops */
+    const e = CM.clamp(.62 + p.hop * .2 + p.stride * .8 + p.happy * .25, 0, 1);
+    for (let i = 0; i < BARS; i++) {
+      const v = CM.clamp((.5 + .5 * CM.noise1(t * 4 + i * 1.7, 50)) * e * (1 - i / BARS * .35), .05, 1), n = round(v * 8);
+      S.peaks[i] = max(S.peaks[i] - env.dt * .6, v);
+      for (let k = 0; k < n; k++) { g.fillStyle = k > 6 ? '#ff3b3b' : k > 4 ? '#ffd23b' : '#3bff6e'; g.fillRect(59 + i * 9.6, 341 - k * 4, 7.6, 3); }
+      g.fillStyle = '#e8f0ff'; g.fillRect(59 + i * 9.6, 341 - round(S.peaks[i] * 8) * 4, 7.6, 1.5);
+    }
+    /* the seek bar's thumb */
+    const u = (t / 187) % 1; g.fillStyle = '#5cff8c'; rr(g, 54, 356, 54 + 292 * u, 362, 3); g.fill();
+    button(g, 46 + 292 * u, 352, 16, 14, '');
+  },
+});
+}
+
+/* ═════════ 51 · Holo Sticker (foil sticker, 2000) ═════════ */
+{
+const PINK = '#ff6fc1';
+function heart(g, x, y, s) { g.beginPath(); g.moveTo(x, y + s * .9); g.bezierCurveTo(x - s * 1.3, y + s * .1, x - s * .9, y - s * .9, x, y - s * .35); g.bezierCurveTo(x + s * .9, y - s * .9, x + s * 1.3, y + s * .1, x, y + s * .9); g.closePath(); }
+function star5(g, x, y, r) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -PI / 2 + i * PI / 5, q = i & 1 ? r * .48 : r; g.lineTo(x + cos(a) * q, y + sin(a) * q); } g.closePath(); }
+/* a small die-cut sticker: white border, drop shadow, then whatever art fn paints */
+function sticker(g, art, edge) {
+  g.save(); g.translate(2, 3); g.fillStyle = 'rgba(110,0,60,.3)'; edge(g, 5); g.fill(); g.restore();
+  g.fillStyle = '#ffffff'; edge(g, 5); g.fill(); art(g);
+}
+/* the holographic rainbow: hue bands whose angle and phase follow the turn */
+function foil(g, x0, y0, x1, y1, ph, ang) {
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, R = hypot(x1 - x0, y1 - y0) / 2, dx = cos(ang) * R, dy = sin(ang) * R, G = g.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
+  for (let k = 0; k <= 8; k++) G.addColorStop(k / 8, hsl(((ph * 360 + k * 70) % 360 + 360) % 360, 95, 74));
+  return G;
+}
+CM.style({
+  id: 'sholo', n: 51, title: 'Holo Sticker', caption: 'Foil sticker, 2000',
+  init(env) {
+    const r = CM.RNG(51);
+    return {
+      glit: Array.from({ length: 22 }, () => ({ u: r(), v: r(), ph: r() * TAU, s: r.range(2.5, 5) })),
+      tw: Array.from({ length: 10 }, () => ({ x: r.range(40, 360), y: r.range(30, 390), ph: r() * TAU })),
+      bg: env.layer(g => {
+        g.fillStyle = '#f3dcff'; g.fillRect(0, 0, 400, 400);
+        /* the candy-pink flip-phone shell, glittered and glossed */
+        g.fillStyle = 'rgba(120,0,80,.25)'; g.beginPath(); g.roundRect(42, 20, 324, 420, 60); g.fill();
+        let G = g.createLinearGradient(30, 0, 370, 0); G.addColorStop(0, '#ff9ad6'); G.addColorStop(.5, PINK); G.addColorStop(1, '#e8449f');
+        g.fillStyle = G; g.beginPath(); g.roundRect(36, 14, 324, 420, 60); g.fill();
+        g.save(); g.clip(); const r = CM.RNG(510);
+        for (let i = 0; i < 2600; i++) { g.fillStyle = r() < .55 ? `rgba(255,255,255,${r.range(.2, .7).toFixed(3)})` : `rgba(255,${floor(r.range(150, 230))},${floor(r.range(200, 255))},.6)`; g.fillRect(r() * 400, r() * 420, r.range(.6, 1.6), r.range(.6, 1.6)); }
+        G = g.createLinearGradient(36, 0, 120, 0); G.addColorStop(0, 'rgba(255,255,255,.55)'); G.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = G; g.fillRect(48, 14, 70, 420);
+        g.restore();
+        g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.beginPath(); g.roundRect(37, 15, 322, 418, 59); g.stroke();
+        /* the outer screen: a tiny LCD with the time */
+        g.fillStyle = '#2a1238'; g.beginPath(); g.roundRect(160, 30, 80, 34, 10); g.fill(); g.fillStyle = '#9fe8ff'; g.font = `700 15px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('12:00', 200, 47);
+        /* the other stickers */
+        sticker(g, q => { q.fillStyle = '#ffe14d'; star5(q, 82, 96, 22); q.fill(); q.fillStyle = '#3a1a00'; q.beginPath(); q.arc(76, 94, 2.4, 0, TAU); q.arc(88, 94, 2.4, 0, TAU); q.fill(); q.strokeStyle = '#3a1a00'; q.lineWidth = 1.8; q.beginPath(); q.arc(82, 98, 6, .3, PI - .3); q.stroke(); }, (q, d) => star5(q, 82, 96, 22 + d));
+        sticker(g, q => { heart(q, 318, 92, 24); q.fillStyle = '#b06cff'; q.fill(); q.fillStyle = '#ffffff'; q.font = `italic 900 13px ${CM.FONT.sans}`; q.textAlign = 'center'; q.fillText('BFF', 318, 92); }, (q, d) => heart(q, 318, 92, 24 + d * 1.1));
+        sticker(g, q => {
+          for (const [s, c] of [[-1, '#5fd8ff'], [1, '#5fd8ff']]) { q.fillStyle = c; q.beginPath(); q.ellipse(316 + s * 13, 330, 13, 18, s * .5, 0, TAU); q.fill(); q.fillStyle = '#ff9be0'; q.beginPath(); q.ellipse(316 + s * 10, 350, 9, 11, -s * .5, 0, TAU); q.fill(); q.fillStyle = c; }
+          q.fillStyle = '#4a2060'; q.beginPath(); q.ellipse(316, 340, 3, 16, 0, 0, TAU); q.fill();
+        }, (q, d) => { q.beginPath(); q.ellipse(316, 338, 30 + d, 30 + d, 0, 0, TAU); });
+        sticker(g, q => { for (let k = 0; k < 5; k++) { const a = k * TAU / 5; q.fillStyle = '#ffffff'; q.beginPath(); q.arc(84 + cos(a) * 9, 336 + sin(a) * 9, 7, 0, TAU); q.fill(); } q.fillStyle = '#ffd400'; q.beginPath(); q.arc(84, 336, 6, 0, TAU); q.fill(); q.strokeStyle = '#ff8fd0'; q.lineWidth = 1.2; for (let k = 0; k < 5; k++) { const a = k * TAU / 5; q.beginPath(); q.arc(84 + cos(a) * 9, 336 + sin(a) * 9, 7, 0, TAU); q.stroke(); } }, (q, d) => { q.beginPath(); q.arc(84, 336, 18 + d, 0, TAU); });
+      }),
+    };
+  },
+  draw(g, env, rig, S) {
+    const p = rig.pose, t = env.t, M = CM.build(p, { cx: 200, cy: 206, s: 12.5 }), O = CM.outline(M, { res: 64 }), grown = O.map(o => CM.offsetPoly(o, -8));
+    env.stamp(g, S.bg);
+    for (const s of S.tw) { const k = max(0, sin(t * 2 + s.ph)); sparkle(g, s.x, s.y, 7 * k * k * k); }
+    /* the die-cut border, lifted off the shell */
+    g.fillStyle = 'rgba(110,0,60,.35)'; g.beginPath(); for (const o of grown) CM.path(g, o.map(q => [q[0] + 3, q[1] + 5])); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); for (const o of grown) CM.path(g, o); g.fill();
+    CM.drawStars(g, M, false, { fill: '#fff59a', ink: '#c2368a' });
+    /* the foil: one rainbow across the whole figure, its bands tilting and sliding as Clawd turns; each face tinted by its light */
+    const bb = M.bbox, ph = p.yaw * .35 + t * .05, ang = .6 + p.yaw * .8;
+    g.save(); g.beginPath(); for (const h of M.hulls) CM.path(g, h, true); g.clip();
+    paintParts(M, f => {
+      CM.fillPoly(g, f.pts, foil(g, bb[0], bb[1], bb[2], bb[3], ph + f.n[0] * .25 + (f.name === 'top' ? .3 : 0), ang + f.n[1]));
+      const k = (1 - f.light) * .32; if (k > .01) CM.fillPoly(g, f.pts, `rgba(80,20,120,${k.toFixed(3)})`);
+    }, pt => strokeEdges(g, pt, 'rgba(255,255,255,.8)', 1.1));
+    /* sheen bands sweep across with the turn */
+    g.globalCompositeOperation = 'overlay';
+    const off = ((p.yaw * 90 + t * 20) % 120 + 120) % 120;
+    for (let x = bb[0] - 160 + off; x < bb[2] + 40; x += 120) { const G = g.createLinearGradient(x, 0, x + 60, 0); G.addColorStop(0, 'rgba(255,255,255,0)'); G.addColorStop(.5, 'rgba(255,255,255,.75)'); G.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = G; g.beginPath(); g.moveTo(x, bb[3] + 10); g.lineTo(x + 60, bb[3] + 10); g.lineTo(x + 120, bb[1] - 10); g.lineTo(x + 60, bb[1] - 10); g.closePath(); g.fill(); }
+    g.globalCompositeOperation = 'source-over';
+    for (const s of S.glit) { const k = max(0, sin(t * 3 + s.ph)) ** 4; sparkle(g, bb[0] + s.u * (bb[2] - bb[0]), bb[1] + s.v * (bb[3] - bb[1]), s.s * k); }
+    g.restore();
+    CM.drawEyes(g, M, { color: '#2a1240', glint: '#ffffff' });
+    CM.drawStars(g, M, true, { fill: '#fff59a', ink: '#c2368a' });
+    CM.drawZzz(g, M, { color: '#ffffff', font: CM.FONT.sans });
   },
 });
 }
