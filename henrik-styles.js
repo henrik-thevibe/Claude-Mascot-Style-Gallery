@@ -379,9 +379,9 @@ CM.style({
 }
 /* ═════════ 29 · Frutiger Aero (glossy jelly, mid-2000s) ═════════ */
 {
-const { path, area, offsetPoly, chaikin, bbox, centroid } = CM;
-const J = { light: '#ffd08a', mid: '#ff9433', deep: '#e85a14', core: '#c8410a', legMid: '#f7801f', legDeep: '#d24c0e', eye: '#5c1d05', eyeLine: '#7a2809' };
-const inset = (p, d) => offsetPoly(p, area(p) > 0 ? -d : d);
+const { path, offsetPoly, bbox, centroid } = CM;
+const K = { light: '#ffbd5c', mid: '#ff7f17', deep: '#e0480a', edge: '#b23a06', eye: '#5c1d05', eyeLine: '#7a2809' };
+const inset = (p, d) => offsetPoly(p, d);   // offsetPoly already shrinks for either winding
 const SUN = [62, 46];
 function ribbon(g, x0, y0, cx, cy, x1, y1, w, a) {
   g.save(); g.lineCap = 'round';
@@ -475,49 +475,120 @@ function bubbles(g, S, t, back) {
     bubble(g, x, y, b.r * (1 + .04 * sin(t * 3 + b.ph * 5)), a);
   }
 }
-/* one part as a lump of tangerine jelly: rounded silhouette, light through the bottom, a window gloss on top */
-function jelly(g, pt, leg) {
-  const P = chaikin(pt.hull, true, 3), bb = bbox(P), w = bb[2] - bb[0], h = bb[3] - bb[1], m = min(w, h); if (m < 1) return;
-  const cx = (bb[0] + bb[2]) / 2;
-  let gr = g.createLinearGradient(bb[0], bb[1], bb[0] + w * .55, bb[3]);
-  gr.addColorStop(0, J.light); gr.addColorStop(.42, leg ? J.legMid : J.mid); gr.addColorStop(1, leg ? J.legDeep : J.deep);
-  g.save(); g.globalAlpha = .9; g.beginPath(); path(g, P, true); g.fillStyle = gr; g.fill(); g.restore();
-  g.save(); g.beginPath(); path(g, P, true); g.clip();
-  /* faces, faintly, so the turn still reads */
-  for (const f of pt.faces) {
-    if (!f.vis) continue;
-    const c = f.name === 'top' ? 'rgba(255,236,200,.28)' : f.name === 'front' ? null : f.name === 'bottom' ? 'rgba(150,40,0,.22)' : `rgba(170,50,5,${(.22 * (1 - f.light)).toFixed(3)})`;
-    if (c) { g.fillStyle = c; g.beginPath(); path(g, f.pts, true); g.fill(); }
+/* the whole mascot as one fused lump of tangerine jelly, painted on its own layer so overlaps never double up:
+   rounded parts plus a bridge that roots every limb in the body, a blurred inner depth along the true outline,
+   a glowing core, air bubbles, light pooling at the bottom, a window gloss on top, and a jiggle when it moves */
+/* round every corner of a convex polygon by radius r (clamped to half of each edge), sampled as points */
+function roundPoly(P, r) {
+  /* first merge corners closer than r, so a short edge can't leave a sharp point */
+  let Q = P.slice();
+  for (let it = 0; it < 4 && Q.length > 3; it++) {
+    let k = -1, best = r * .9;
+    for (let i = 0; i < Q.length; i++) { const a = Q[i], b = Q[(i + 1) % Q.length], l = hypot(a[0] - b[0], a[1] - b[1]); if (l < best) { best = l; k = i; } }
+    if (k < 0) break; const a = Q[k], b = Q[(k + 1) % Q.length], mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    Q.splice(k, 1, mid); Q.splice((k + 1) % (Q.length), 1);
   }
-  /* jelly depth: the edges thicken and darken */
-  g.lineJoin = 'round';
-  for (const [k, a] of [[.42, .07], [.24, .1], [.1, .16]]) { g.strokeStyle = `rgba(185,55,0,${a})`; g.lineWidth = m * k; g.beginPath(); path(g, P, true); g.stroke(); }
+  P = Q;
+  const n = P.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const a = P[(i + n - 1) % n], b = P[i], c = P[(i + 1) % n], la = hypot(a[0] - b[0], a[1] - b[1]), lc = hypot(c[0] - b[0], c[1] - b[1]); if (la < 1e-6 || lc < 1e-6) continue;
+    const ra = min(r, la * .5), rc = min(r, lc * .5), p0 = [b[0] + (a[0] - b[0]) / la * ra, b[1] + (a[1] - b[1]) / la * ra], p1 = [b[0] + (c[0] - b[0]) / lc * rc, b[1] + (c[1] - b[1]) / lc * rc];
+    for (let k = 0; k <= 5; k++) { const u = k / 5, v = 1 - u; out.push([v * v * p0[0] + 2 * v * u * b[0] + u * u * p1[0], v * v * p0[1] + 2 * v * u * b[1] + u * u * p1[1]]); }
+  }
+  return out;
+}
+const roundHull = pt => { const bb = bbox(pt.hull), m = min(bb[2] - bb[0], bb[3] - bb[1]); return roundPoly(pt.hull, pt.name === 'body' ? m * .38 : m * .5); };
+function wobble(P, c, amp, t) {
+  if (amp < .05) return P;
+  return P.map(q => { const a = Math.atan2(q[1] - c[1], q[0] - c[0]), k = 1 + amp * .011 * sin(a * 3 + t * 15) + amp * .006 * sin(a * 5 - t * 11); return [c[0] + (q[0] - c[0]) * k, c[1] + (q[1] - c[1]) * k]; });
+}
+/* a limb's attached face pushed toward the body centre: fills the gap the body's rounded corners would leave */
+function bridge(face, c, k) {
+  const fc = centroid(face.pts), d = [(c[0] - fc[0]) * k, (c[1] - fc[1]) * k];
+  const H = CM.hull(face.pts.map(q => [q[0], q[1]]).concat(face.pts.map(q => [q[0] + d[0], q[1] + d[1]]))), bb = bbox(H);
+  return roundPoly(H, min(bb[2] - bb[0], bb[3] - bb[1]) * .4);
+}
+function shapes(M, amp, t) {
+  const c = M.center, out = [];
+  for (const pt of M.order) {
+    out.push(roundHull(pt));
+    if (pt.name[0] === 'l') out.push(bridge(pt.f.top, c, .32));
+    else if (pt.name === 'armL') out.push(bridge(pt.f.right, c, .22));
+    else if (pt.name === 'armR') out.push(bridge(pt.f.left, c, .22));
+  }
+  return out.map(P => wobble(P, c, amp, t));
+}
+const clearLayer = L => { L.g.save(); L.g.setTransform(1, 0, 0, 1, 0, 0); L.g.clearRect(0, 0, L.c.width, L.c.height); L.g.restore(); };
+function jelly(g, M, S, t, env) {
+  const c = M.center, U = shapes(M, S.jig, t), all = bbox(U.flat()), w = all[2] - all[0], h = all[3] - all[1];
+  const body = M.parts.body, BP = wobble(roundHull(body), c, S.jig, t), bb = bbox(BP), bw = bb[2] - bb[0], bh = bb[3] - bb[1], m = min(bw, bh);
+  const J = S.J, O = S.O, j = J.g, o = O.g, shape = q => { q.beginPath(); for (const P of U) path(q, P, true); };
+  clearLayer(J); clearLayer(O);
+  /* base: light top-left to deep bottom-right */
+  let gr = j.createLinearGradient(all[0], all[1], all[0] + w * .6, all[3]);
+  gr.addColorStop(0, K.light); gr.addColorStop(.4, K.mid); gr.addColorStop(1, K.deep);
+  shape(j); j.fillStyle = gr; j.fill();
+  /* everything after this stays inside the jelly */
+  j.globalCompositeOperation = 'source-atop';
+  /* a glowing core, as if the sun were caught inside */
+  gr = j.createRadialGradient(c[0] + bw * .05, c[1] + bh * .12, 0, c[0], c[1] + bh * .1, max(bw, bh) * .55);
+  gr.addColorStop(0, 'rgba(255,215,110,.4)'); gr.addColorStop(.6, 'rgba(255,180,70,.1)'); gr.addColorStop(1, 'rgba(255,190,90,0)'); j.fillStyle = gr; j.fillRect(all[0], all[1], w, h);
+  /* the body's faces, rounded and faint, so the turn still reads */
+  for (const f of body.faces) {
+    if (!f.vis || f.name === 'front') continue; const fb = bbox(f.pts), fm = min(fb[2] - fb[0], fb[3] - fb[1]); if (fm < 2) continue;
+    j.fillStyle = f.name === 'top' ? 'rgba(255,238,200,.3)' : f.name === 'bottom' ? 'rgba(150,40,0,.2)' : `rgba(170,50,5,${(.22 * (1 - f.light)).toFixed(3)})`;
+    j.beginPath(); path(j, wobble(roundPoly(f.pts, fm * .45), c, S.jig, t), true); j.fill();
+  }
+  /* a soft crease where a nub sits in front of the body */
+  for (const pt of M.order.slice(M.order.indexOf(body) + 1)) if (pt.name[0] === 'a') { j.strokeStyle = 'rgba(175,55,5,.22)'; j.lineWidth = m * .03; j.beginPath(); path(j, wobble(roundHull(pt), c, S.jig, t), true); j.stroke(); }
+  /* jelly depth: stacked rings (the jelly minus its own insets) darken and thicken every edge; a thin pale one is the rim */
+  const insets = d => { o.beginPath(); for (const P of U) { const q = bbox(P); if (min(q[2] - q[0], q[3] - q[1]) > d * 2.2) path(o, inset(P, d), true); } };
+  const k = env.px, x0 = max(0, floor((all[0] - 4) * k)), y0 = max(0, floor((all[1] - 4) * k)), sw = min(O.c.width, ceil((all[2] + 4) * k)) - x0, sh = min(O.c.height, ceil((all[3] + 4) * k)) - y0;
+  if (sw > 0 && sh > 0) {
+    for (const [d, a] of [[m * .22, .14], [m * .14, .15], [m * .085, .17], [m * .045, .2], [m * .018, .22]]) { o.globalAlpha = a; o.fillStyle = K.edge; shape(o); o.fill(); o.globalAlpha = 1; o.globalCompositeOperation = 'destination-out'; insets(d); o.fill(); o.globalCompositeOperation = 'source-over'; }
+    j.drawImage(O.c, x0, y0, sw, sh, x0 / k, y0 / k, sw / k, sh / k);
+    clearLayer(O); o.fillStyle = 'rgba(255,236,210,.6)'; shape(o); o.fill(); o.globalCompositeOperation = 'destination-out'; insets(1.3); o.fill(); o.globalCompositeOperation = 'source-over';
+    j.drawImage(O.c, x0, y0, sw, sh, x0 / k, y0 / k, sw / k, sh / k);
+  }
+  /* tiny air bubbles caught in the jelly, drifting up */
+  for (const b of S.air) {
+    const u = (b.ph + t * b.v) % 1, x = bb[0] + bw * (b.x + .03 * sin(t * 2 + b.ph * 9)), y = bb[3] - bh * (.12 + u * .78), r = b.r * m * .02, a = sin(PI * u) * .85;
+    j.strokeStyle = `rgba(255,245,225,${a.toFixed(3)})`; j.lineWidth = .8; j.beginPath(); j.arc(x, y, r, 0, TAU); j.stroke();
+    j.fillStyle = `rgba(255,255,255,${(a * .9).toFixed(3)})`; j.beginPath(); j.arc(x - r * .35, y - r * .35, r * .3, 0, TAU); j.fill();
+  }
   /* light passing through, pooling at the bottom */
-  gr = g.createRadialGradient(cx, bb[3] + h * .05, 0, cx, bb[3] + h * .05, w * .62);
-  gr.addColorStop(0, 'rgba(255,236,140,.75)'); gr.addColorStop(.5, 'rgba(255,200,90,.25)'); gr.addColorStop(1, 'rgba(255,200,90,0)'); g.fillStyle = gr; g.fillRect(bb[0], bb[1], w, h);
-  /* the glossy window: an inset cap over the top half */
-  const G = inset(P, m * .07);
-  g.beginPath(); path(g, G, true); g.clip();
-  gr = g.createLinearGradient(0, bb[1], 0, bb[1] + h * .55);
-  gr.addColorStop(0, 'rgba(255,255,255,.85)'); gr.addColorStop(.55, 'rgba(255,255,255,.22)'); gr.addColorStop(.56, 'rgba(255,255,255,.08)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = gr; g.fillRect(bb[0], bb[1], w, h * .55);
-  g.restore();
-  /* a hot spot, top left */
-  g.save(); g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.ellipse(bb[0] + w * .27, bb[1] + h * .2, max(1, w * .09), max(.8, h * .055), -.5, 0, TAU); g.fill(); g.restore();
-  /* a thin bright rim */
-  g.strokeStyle = 'rgba(255,240,220,.7)'; g.lineWidth = 1.1; g.beginPath(); path(g, P, true); g.stroke();
+  gr = j.createRadialGradient(c[0], all[3], 0, c[0], all[3], w * .55);
+  gr.addColorStop(0, 'rgba(255,225,120,.55)'); gr.addColorStop(.5, 'rgba(255,190,80,.16)'); gr.addColorStop(1, 'rgba(255,190,80,0)'); j.fillStyle = gr; j.fillRect(all[0], all[1], w, h);
+  /* the glossy window: an inset cap over the top of the body */
+  j.save(); j.beginPath(); path(j, inset(BP, m * .07), true); j.clip();
+  gr = j.createLinearGradient(0, bb[1], 0, bb[1] + bh * .52);
+  gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.6, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  j.fillStyle = gr; j.fillRect(bb[0], bb[1], bw, bh * .52);
+  j.restore();
+  /* hot spots: a big one on the body, small ones on the visible nubs and legs */
+  j.fillStyle = 'rgba(255,255,255,.95)';
+  j.beginPath(); j.ellipse(bb[0] + bw * .25, bb[1] + bh * .19, bw * .085, bh * .05, -.5, 0, TAU); j.fill();
+  for (const pt of M.order) {
+    if (pt === body) continue; const q = bbox(pt.s), lw = q[2] - q[0], lh = q[3] - q[1], leg = pt.name[0] === 'l';
+    const x = q[0] + lw * .32, y = leg ? q[1] + lh * .66 : q[1] + lh * .28;
+    if (CM.inPoly(x, y, BP)) continue;
+    j.globalAlpha = .85; j.beginPath(); j.ellipse(x, y, max(1, lw * .13), max(1.2, lh * (leg ? .13 : .1)), leg ? 0 : -.5, 0, TAU); j.fill();
+  }
+  j.globalAlpha = 1; j.globalCompositeOperation = 'source-over';
+  /* the layer goes down at once, translucent, so the meadow shows through */
+  g.save(); g.globalAlpha = .93; env.stamp(g, J); g.restore();
 }
 function eyes(g, M) {
   for (const e of M.eyes) {
     if (!e.vis) continue; const sz = e.size;
     if (e.poly) {
       const bb = bbox(e.poly), gr = g.createLinearGradient(0, bb[1], 0, bb[3]);
-      gr.addColorStop(0, '#2c0c02'); gr.addColorStop(.6, J.eye); gr.addColorStop(1, '#b8460f');
+      gr.addColorStop(0, '#2c0c02'); gr.addColorStop(.6, K.eye); gr.addColorStop(1, '#b8460f');
       g.fillStyle = gr; g.beginPath(); path(g, e.poly, true); g.fill();
       g.strokeStyle = 'rgba(255,230,200,.55)'; g.lineWidth = 1; g.stroke();
       if (e.open > .45) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(e.glint[0] - sz * .12, e.glint[1] - sz * .05, sz * .2, sz * .26, -.3, 0, TAU); g.fill(); g.globalAlpha = .7; g.beginPath(); g.arc(e.glint[0] + sz * .02, e.glint[1] + sz * .62, sz * .09, 0, TAU); g.fill(); g.globalAlpha = 1; }
     }
-    if (e.lines.length) { g.strokeStyle = J.eyeLine; g.lineWidth = e.mode === 'dizzy' ? max(1.2, sz * .2) : max(1.8, sz * .34); g.lineCap = 'round'; g.lineJoin = 'round'; for (const l of e.lines) { g.beginPath(); path(g, l, false); g.stroke(); } }
+    if (e.lines.length) { g.strokeStyle = K.eyeLine; g.lineWidth = e.mode === 'dizzy' ? max(1.2, sz * .2) : max(1.8, sz * .34); g.lineCap = 'round'; g.lineJoin = 'round'; for (const l of e.lines) { g.beginPath(); path(g, l, false); g.stroke(); } }
   }
 }
 /* dizzy: little glossy four-point sparkles */
@@ -547,6 +618,8 @@ CM.style({
     const r = env.rnd;
     return {
       bg: env.layer(g => scene(g, r)),
+      air: Array.from({ length: 6 }, () => ({ x: r.range(.15, .85), r: r.range(.6, 1.6), v: r.range(.05, .12), ph: r() })),
+      jig: 0, last: null, J: env.layer(() => {}), O: env.layer(() => {}),
       bubbles: Array.from({ length: 14 }, (_, i) => ({ x: r.range(14, 386), r: r.range(5, 17), v: r.range(.035, .07), w: r.range(.6, 1.3), ph: r(), back: i % 5 !== 0 })),
     };
   },
@@ -562,7 +635,11 @@ CM.style({
     let gr = g.createRadialGradient(0, 0, 0, 0, 0, rx * 1.05); gr.addColorStop(0, 'rgba(255,150,40,.55)'); gr.addColorStop(.35, 'rgba(230,120,30,.35)'); gr.addColorStop(.7, 'rgba(30,90,10,.28)'); gr.addColorStop(1, 'rgba(30,90,10,0)');
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx * 1.05, 0, TAU); g.fill(); g.restore();
     sparkles(g, M, false);
-    for (const pt of M.order) jelly(g, pt, pt.name[0] === 'l');
+    /* jiggle: a spring fed by how fast the pose moves */
+    const L = S.last;
+    if (L) S.jig = min(5, S.jig * .9 + (abs(p.yaw - L[0]) + abs(p.pitch - L[1]) + abs(p.roll - L[2]) + abs(p.hop - L[3]) * .15 + abs(p.sq - L[4]) * 2) * 7);
+    S.last = [p.yaw, p.pitch, p.roll, p.hop, p.sq];
+    jelly(g, M, S, t, env);
     eyes(g, M);
     sparkles(g, M, true);
     bubbles(g, S, t, false);
