@@ -478,44 +478,40 @@ function bubbles(g, S, t, back) {
 /* the whole mascot as one fused lump of tangerine jelly, painted on its own layer so overlaps never double up:
    rounded parts plus a bridge that roots every limb in the body, a blurred inner depth along the true outline,
    a glowing core, air bubbles, light pooling at the bottom, a window gloss on top, and a jiggle when it moves */
-/* round every corner of a convex polygon by radius r (clamped to half of each edge), sampled as points */
-function roundPoly(P, r) {
-  /* first merge corners closer than r, so a short edge can't leave a sharp point */
-  let Q = P.slice();
-  for (let it = 0; it < 4 && Q.length > 3; it++) {
-    let k = -1, best = r * .9;
-    for (let i = 0; i < Q.length; i++) { const a = Q[i], b = Q[(i + 1) % Q.length], l = hypot(a[0] - b[0], a[1] - b[1]); if (l < best) { best = l; k = i; } }
-    if (k < 0) break; const a = Q[k], b = Q[(k + 1) % Q.length], mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    Q.splice(k, 1, mid); Q.splice((k + 1) % (Q.length), 1);
+/* round a polygon's corners by about r px: resample its outline at N even steps, then blur the points along it.
+   Everything here moves continuously with the input, so a turning part never snaps (merging or clamping corners did) */
+function roundPoly(P, r, N = 32) {
+  const n = P.length, L = [0];
+  for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; L.push(L[i] + hypot(b[0] - a[0], b[1] - a[1])); }
+  const per = L[n]; if (per < 1e-3) return P.slice();
+  const step = per / N, X = new Float64Array(N), Y = new Float64Array(N), TX = new Float64Array(N), TY = new Float64Array(N);
+  for (let k = 0, i = 0; k < N; k++) {
+    const d = k * step; while (i < n - 1 && L[i + 1] < d) i++;
+    const a = P[i], b = P[(i + 1) % n], u = (d - L[i]) / (L[i + 1] - L[i] || 1); X[k] = a[0] + (b[0] - a[0]) * u; Y[k] = a[1] + (b[1] - a[1]) * u;
   }
-  P = Q;
-  const n = P.length, out = [];
-  for (let i = 0; i < n; i++) {
-    const a = P[(i + n - 1) % n], b = P[i], c = P[(i + 1) % n], la = hypot(a[0] - b[0], a[1] - b[1]), lc = hypot(c[0] - b[0], c[1] - b[1]); if (la < 1e-6 || lc < 1e-6) continue;
-    const ra = min(r, la * .5), rc = min(r, lc * .5), p0 = [b[0] + (a[0] - b[0]) / la * ra, b[1] + (a[1] - b[1]) / la * ra], p1 = [b[0] + (c[0] - b[0]) / lc * rc, b[1] + (c[1] - b[1]) / lc * rc];
-    for (let k = 0; k <= 5; k++) { const u = k / 5, v = 1 - u; out.push([v * v * p0[0] + 2 * v * u * b[0] + u * u * p1[0], v * v * p0[1] + 2 * v * u * b[1] + u * u * p1[1]]); }
+  /* each [¼ ½ ¼] pass spreads by √½ sample: pick the pass count from the radius wanted */
+  const passes = min(240, round(2 * (r / step) ** 2));
+  for (let p = 0; p < passes; p++) {
+    TX.set(X); TY.set(Y);
+    for (let k = 0; k < N; k++) { const a = (k + N - 1) % N, c = (k + 1) % N; X[k] = .25 * TX[a] + .5 * TX[k] + .25 * TX[c]; Y[k] = .25 * TY[a] + .5 * TY[k] + .25 * TY[c]; }
   }
-  return out;
+  const Q = new Array(N); for (let k = 0; k < N; k++) Q[k] = [X[k], Y[k]];
+  return Q;
 }
-/* the jelly body hangs lower than the model's box: every bottom corner (y bit clear) is pushed down along its edge,
-   so the body swallows the top of the legs and leaves short gummy stubs */
-/* SLIM can squeeze the whole jelly sideways about its centre (1 = Clawd's own proportions) */
-const SLIM = 1, slim = (g, M) => { g.translate(M.center[0], 0); g.scale(SLIM, 1); g.translate(-M.center[0], 0); };
+/* the jelly body hangs a little lower than the model's box: every bottom corner (y bit clear) is pushed down along its edge */
+/* the jiggle: the whole jelly squashes and stretches about the point between its feet, so nothing drifts or twitches */
+const squish = (g, M, S) => { const fy = max(...M.feet.map(q => q[1])), a = S.wob || 0; g.translate(M.center[0], fy); g.scale(1 + a, 1 - a); g.translate(-M.center[0], -fy); };
 const DROP = .03, FACE_IX = { front: [4, 5, 7, 6], back: [1, 0, 2, 3], right: [5, 1, 3, 7], left: [0, 4, 6, 2], top: [6, 7, 3, 2], bottom: [0, 1, 5, 4] };
 const bodyPts = pt => pt.s.map((q, i) => i & 2 ? [q[0], q[1]] : [q[0] + (q[0] - pt.s[i + 2][0]) * DROP, q[1] + (q[1] - pt.s[i + 2][1]) * DROP]);
 const roundHull = pt => {
   const H = pt.name === 'body' ? CM.hull(bodyPts(pt)) : pt.hull, bb = bbox(H), m = min(bb[2] - bb[0], bb[3] - bb[1]);
-  return roundPoly(H, pt.name === 'body' ? m * .24 : m * .5);
+  return pt.name === 'body' ? roundPoly(H, m * .13, 64) : roundPoly(H, m * .2);
 };
-function wobble(P, c, amp, t) {
-  if (amp < .05) return P;
-  return P.map(q => { const a = Math.atan2(q[1] - c[1], q[0] - c[0]), k = 1 + amp * .011 * sin(a * 3 + t * 15) + amp * .006 * sin(a * 5 - t * 11); return [c[0] + (q[0] - c[0]) * k, c[1] + (q[1] - c[1]) * k]; });
-}
 /* a limb's attached face pushed toward the body centre: fills the gap the body's rounded corners would leave */
 function bridge(face, c, k) {
   const fc = centroid(face.pts), d = [(c[0] - fc[0]) * k, (c[1] - fc[1]) * k];
   const H = CM.hull(face.pts.map(q => [q[0], q[1]]).concat(face.pts.map(q => [q[0] + d[0], q[1] + d[1]]))), bb = bbox(H);
-  return roundPoly(H, min(bb[2] - bb[0], bb[3] - bb[1]) * .4);
+  return roundPoly(H, min(bb[2] - bb[0], bb[3] - bb[1]) * .2);
 }
 /* a leg's hip: flared sideways (across the leg's own axis) where it meets the body, tapering into the leg,
    so it grows out of the body. Box corners: x = bit 0, y = bit 1, z = bit 2, so 2,3,6,7 are the top and 0,1,4,5 the bottom */
@@ -526,9 +522,9 @@ function hip(pt) {
   const D = CM.DIM, fb = (.45 + DROP * D.BH) / (D.LH + .45);
   const at = (along, side) => [tc[0] + u[0] * along + n[0] * side, tc[1] + u[1] * along + n[1] * side];
   const H = CM.hull([at(L * (fb - .3), -hw), at(L * (fb - .3), hw), at(L * fb, -hw * 1.35), at(L * fb, hw * 1.35), at(L * (fb + .3), -hw * .95), at(L * (fb + .3), hw * .95)]);
-  return roundPoly(H, hw * .7);
+  return roundPoly(H, hw * .35);
 }
-function shapes(M, amp, t) {
+function shapes(M) {
   const c = M.center, out = [];
   for (const pt of M.order) {
     out.push(roundHull(pt));
@@ -536,12 +532,12 @@ function shapes(M, amp, t) {
     else if (pt.name === 'armL') out.push(bridge(pt.f.right, c, .22));
     else if (pt.name === 'armR') out.push(bridge(pt.f.left, c, .22));
   }
-  return out.map(P => wobble(P, c, amp, t));
+  return out;
 }
 const clearLayer = L => { L.g.save(); L.g.setTransform(1, 0, 0, 1, 0, 0); L.g.clearRect(0, 0, L.c.width, L.c.height); L.g.restore(); };
 function jelly(g, M, S, t, env) {   // drawn unsquashed on its layer, squeezed by slim() when stamped
-  const c = M.center, U = shapes(M, S.jig, t), all = bbox(U.flat()), w = all[2] - all[0], h = all[3] - all[1];
-  const body = M.parts.body, BP = wobble(roundHull(body), c, S.jig, t), bb = bbox(BP), bw = bb[2] - bb[0], bh = bb[3] - bb[1], m = min(bw, bh);
+  const c = M.center, U = shapes(M), all = bbox(U.flat()), w = all[2] - all[0], h = all[3] - all[1];
+  const body = M.parts.body, BP = roundHull(body), bb = bbox(BP), bw = bb[2] - bb[0], bh = bb[3] - bb[1], m = min(bw, bh);
   const J = S.J, O = S.O, j = J.g, o = O.g, shape = q => { q.beginPath(); for (const P of U) path(q, P, true); };
   clearLayer(J); clearLayer(O);
   /* base: light top-left to deep bottom-right */
@@ -558,12 +554,15 @@ function jelly(g, M, S, t, env) {   // drawn unsquashed on its layer, squeezed b
   for (const f of body.faces) {
     if (!f.vis || f.name === 'front') continue; const fb = bbox(f.pts), fm = min(fb[2] - fb[0], fb[3] - fb[1]); if (fm < 2) continue;
     j.fillStyle = f.name === 'top' ? 'rgba(255,238,200,.3)' : f.name === 'bottom' ? 'rgba(150,40,0,.2)' : `rgba(170,50,5,${(.22 * (1 - f.light)).toFixed(3)})`;
-    j.beginPath(); path(j, wobble(roundPoly(FACE_IX[f.name].map(i => BS[i]), fm * .45), c, S.jig, t), true); j.fill();
+    j.beginPath(); path(j, roundPoly(FACE_IX[f.name].map(i => BS[i]), fm * .2), true); j.fill();
   }
   /* a soft crease where a nub sits in front of the body */
-  for (const pt of M.order.slice(M.order.indexOf(body) + 1)) if (pt.name[0] === 'a') { j.strokeStyle = 'rgba(175,55,5,.22)'; j.lineWidth = m * .03; j.beginPath(); path(j, wobble(roundHull(pt), c, S.jig, t), true); j.stroke(); }
+  for (const [arm, side] of [['armL', 'left'], ['armR', 'right']]) {
+    const k = CM.clamp(-CM.area(body.f[side].pts) / (m * m * .25), 0, 1); if (k < .01) continue;   // fades in as that side of the body turns toward us
+    j.strokeStyle = `rgba(175,55,5,${(.22 * k).toFixed(3)})`; j.lineWidth = m * .03; j.beginPath(); path(j, roundHull(M.parts[arm]), true); j.stroke();
+  }
   /* jelly depth: stacked rings (the jelly minus its own insets) darken and thicken every edge; a thin pale one is the rim */
-  const insets = d => { o.beginPath(); for (const P of U) { const q = bbox(P); if (min(q[2] - q[0], q[3] - q[1]) > d * 2.2) path(o, inset(P, d), true); } };
+  const insets = d => { o.beginPath(); for (const P of U) { const q = bbox(P); path(o, inset(P, min(d, min(q[2] - q[0], q[3] - q[1]) * .4)), true); } };
   const k = env.px, x0 = max(0, floor((all[0] - 4) * k)), y0 = max(0, floor((all[1] - 4) * k)), sw = min(O.c.width, ceil((all[2] + 4) * k)) - x0, sh = min(O.c.height, ceil((all[3] + 4) * k)) - y0;
   if (sw > 0 && sh > 0) {
     for (const [d, a] of [[m * .22, .14], [m * .14, .15], [m * .085, .17], [m * .045, .2], [m * .018, .22]]) { o.globalAlpha = a; o.fillStyle = K.edge; shape(o); o.fill(); o.globalAlpha = 1; o.globalCompositeOperation = 'destination-out'; insets(d); o.fill(); o.globalCompositeOperation = 'source-over'; }
@@ -592,12 +591,12 @@ function jelly(g, M, S, t, env) {   // drawn unsquashed on its layer, squeezed b
   for (const pt of M.order) {
     if (pt === body) continue; const q = bbox(pt.s), lw = q[2] - q[0], lh = q[3] - q[1], leg = pt.name[0] === 'l';
     const x = q[0] + lw * .32, y = leg ? q[1] + lh * .8 : q[1] + lh * .28;
-    if (CM.inPoly(x, y, BP)) continue;
-    j.globalAlpha = .85; j.beginPath(); j.ellipse(x, y, max(1, lw * .13), max(1.2, lh * (leg ? .13 : .1)), leg ? 0 : -.5, 0, TAU); j.fill();
+    const k = CM.clamp(1 - edgeNear(x, y, BP).d / 6, 0, 1); if (k < .01) continue;   // fades as it slips behind the body
+    j.globalAlpha = .85 * k; j.beginPath(); j.ellipse(x, y, max(1, lw * .13), max(1.2, lh * (leg ? .13 : .1)), leg ? 0 : -.5, 0, TAU); j.fill();
   }
   j.globalAlpha = 1; j.globalCompositeOperation = 'source-over';
   /* the layer goes down at once, translucent, so the meadow shows through */
-  g.save(); g.globalAlpha = .93; slim(g, M); env.stamp(g, J); g.restore();
+  g.save(); g.globalAlpha = .93; squish(g, M, S); env.stamp(g, J); g.restore();
   return BP;
 }
 /* eyes live in the jelly: clipped to the rounded body, so they slide out of sight round a corner instead of poking out */
@@ -681,15 +680,13 @@ CM.style({
     g.save(); g.globalAlpha = M.shadowAlpha; g.translate(c[0], c[1]); g.scale(1, ry / rx);
     let gr = g.createRadialGradient(0, 0, 0, 0, 0, rx * 1.05); gr.addColorStop(0, 'rgba(255,150,40,.55)'); gr.addColorStop(.35, 'rgba(230,120,30,.35)'); gr.addColorStop(.7, 'rgba(30,90,10,.28)'); gr.addColorStop(1, 'rgba(30,90,10,0)');
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx * 1.05, 0, TAU); g.fill(); g.restore();
-    g.save(); slim(g, M);
-    sparkles(g, M, false);
-    /* jiggle: a spring fed by how fast the pose moves */
+    /* jiggle: a spring fed by how fast the pose moves, decaying in about half a second */
     const L = S.last;
     if (L) S.jig = min(5, S.jig * .9 + (abs(p.yaw - L[0]) + abs(p.pitch - L[1]) + abs(p.roll - L[2]) + abs(p.hop - L[3]) * .15 + abs(p.sq - L[4]) * 2) * 7);
-    S.last = [p.yaw, p.pitch, p.roll, p.hop, p.sq];
-    g.restore();
+    S.last = [p.yaw, p.pitch, p.roll, p.hop, p.sq]; S.wob = S.jig * .008 * sin(t * 14);
+    g.save(); squish(g, M, S); sparkles(g, M, false); g.restore();
     const BP = jelly(g, M, S, t, env);
-    g.save(); slim(g, M);
+    g.save(); squish(g, M, S);
     eyes(g, M, BP);
     sparkles(g, M, true);
     g.restore();
