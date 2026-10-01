@@ -508,11 +508,21 @@ function bridge(face, c, k) {
   const H = CM.hull(face.pts.map(q => [q[0], q[1]]).concat(face.pts.map(q => [q[0] + d[0], q[1] + d[1]]))), bb = bbox(H);
   return roundPoly(H, min(bb[2] - bb[0], bb[3] - bb[1]) * .4);
 }
+/* a leg's hip: flared sideways (across the leg's own axis) where it meets the body, tapering into the leg,
+   so it grows out of the body. Box corners: x = bit 0, y = bit 1, z = bit 2, so 2,3,6,7 are the top and 0,1,4,5 the bottom */
+function hip(pt) {
+  const tc = centroid([2, 3, 6, 7].map(i => pt.s[i])), bc = centroid([0, 1, 4, 5].map(i => pt.s[i]));
+  const L = hypot(bc[0] - tc[0], bc[1] - tc[1]) || 1, u = [(bc[0] - tc[0]) / L, (bc[1] - tc[1]) / L], n = [-u[1], u[0]];
+  let hw = 0; for (const q of pt.s) hw = max(hw, abs((q[0] - tc[0]) * n[0] + (q[1] - tc[1]) * n[1]));
+  const at = (along, side) => [tc[0] + u[0] * along + n[0] * side, tc[1] + u[1] * along + n[1] * side];
+  const H = CM.hull([at(-L * .25, -hw), at(-L * .25, hw), at(L * .06, -hw * 1.45), at(L * .06, hw * 1.45), at(L * .42, -hw * .95), at(L * .42, hw * .95)]);
+  return roundPoly(H, hw * .7);
+}
 function shapes(M, amp, t) {
   const c = M.center, out = [];
   for (const pt of M.order) {
     out.push(roundHull(pt));
-    if (pt.name[0] === 'l') out.push(bridge(pt.f.top, c, .32));
+    if (pt.name[0] === 'l') { out.push(bridge(pt.f.top, c, .32)); out.push(hip(pt)); }
     else if (pt.name === 'armL') out.push(bridge(pt.f.right, c, .22));
     else if (pt.name === 'armR') out.push(bridge(pt.f.left, c, .22));
   }
@@ -577,19 +587,36 @@ function jelly(g, M, S, t, env) {
   j.globalAlpha = 1; j.globalCompositeOperation = 'source-over';
   /* the layer goes down at once, translucent, so the meadow shows through */
   g.save(); g.globalAlpha = .93; env.stamp(g, J); g.restore();
+  return BP;
 }
-function eyes(g, M) {
+/* eyes live in the jelly: clipped to the rounded body, so they slide out of sight round a corner instead of poking out */
+function edgeDist(x, y, P) {
+  let d = 1e9;
+  for (let i = 0, n = P.length; i < n; i++) {
+    const a = P[i], b = P[(i + 1) % n], vx = b[0] - a[0], vy = b[1] - a[1], l = vx * vx + vy * vy || 1, k = CM.clamp(((x - a[0]) * vx + (y - a[1]) * vy) / l, 0, 1);
+    d = min(d, hypot(x - a[0] - vx * k, y - a[1] - vy * k));
+  }
+  return CM.inPoly(x, y, P) ? d : -d;
+}
+function eyes(g, M, BP) {
+  g.save(); g.beginPath(); path(g, inset(BP, 1.5), true); g.clip();
   for (const e of M.eyes) {
-    if (!e.vis) continue; const sz = e.size;
+    if (!e.vis) continue;
+    /* near the rounded edge the eye wraps away: it shrinks and fades instead of being cut */
+    const d = edgeDist(e.c[0], e.c[1], BP), a = CM.clamp((d - e.size * .3) / (e.size * .55), 0, 1); if (a < .02) continue;
+    const sz = e.size, sc = .55 + .45 * a;
+    g.save(); g.globalAlpha = a; g.translate(e.c[0], e.c[1]); g.scale(sc, sc); g.translate(-e.c[0], -e.c[1]);
     if (e.poly) {
       const bb = bbox(e.poly), gr = g.createLinearGradient(0, bb[1], 0, bb[3]);
       gr.addColorStop(0, '#2c0c02'); gr.addColorStop(.6, K.eye); gr.addColorStop(1, '#b8460f');
       g.fillStyle = gr; g.beginPath(); path(g, e.poly, true); g.fill();
       g.strokeStyle = 'rgba(255,230,200,.55)'; g.lineWidth = 1; g.stroke();
-      if (e.open > .45) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(e.glint[0] - sz * .12, e.glint[1] - sz * .05, sz * .2, sz * .26, -.3, 0, TAU); g.fill(); g.globalAlpha = .7; g.beginPath(); g.arc(e.glint[0] + sz * .02, e.glint[1] + sz * .62, sz * .09, 0, TAU); g.fill(); g.globalAlpha = 1; }
+      if (e.open > .45) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(e.glint[0] - sz * .12, e.glint[1] - sz * .05, sz * .2, sz * .26, -.3, 0, TAU); g.fill(); g.globalAlpha = .7 * a; g.beginPath(); g.arc(e.glint[0] + sz * .02, e.glint[1] + sz * .62, sz * .09, 0, TAU); g.fill(); g.globalAlpha = a; }
     }
     if (e.lines.length) { g.strokeStyle = K.eyeLine; g.lineWidth = e.mode === 'dizzy' ? max(1.2, sz * .2) : max(1.8, sz * .34); g.lineCap = 'round'; g.lineJoin = 'round'; for (const l of e.lines) { g.beginPath(); path(g, l, false); g.stroke(); } }
+    g.restore();
   }
+  g.restore();
 }
 /* dizzy: little glossy four-point sparkles */
 function sparkles(g, M, front) {
@@ -639,8 +666,8 @@ CM.style({
     const L = S.last;
     if (L) S.jig = min(5, S.jig * .9 + (abs(p.yaw - L[0]) + abs(p.pitch - L[1]) + abs(p.roll - L[2]) + abs(p.hop - L[3]) * .15 + abs(p.sq - L[4]) * 2) * 7);
     S.last = [p.yaw, p.pitch, p.roll, p.hop, p.sq];
-    jelly(g, M, S, t, env);
-    eyes(g, M);
+    const BP = jelly(g, M, S, t, env);
+    eyes(g, M, BP);
     sparkles(g, M, true);
     bubbles(g, S, t, false);
     zs(g, M);
