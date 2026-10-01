@@ -1,8 +1,8 @@
-# Clawd in Twenty-Eight Styles
+# Clawd in Twenty-Eight Art Styles
 
-Clawd, the Claude Code mascot, drawn live in twenty-eight styles: from the cave wall to the lapel pin, and a few experiments beyond. Every line is drawn by code in your browser, with no images and no dependencies.
+Clawd, the Claude Code mascot, drawn live in twenty-eight art styles: from the cave wall to the lapel pin, and a few experiments beyond. Every line is drawn by code in your browser, with no images and no dependencies.
 
-Unofficial fan art.
+Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/artifact/TrrKcRKsCUtAFYzyhF6tDH).
 
 <table>
 <tr><td align="center"><img src="media/cave.gif" width="200" alt="Clawd, Cave Painting"><br><sub><b>01</b> Cave Painting</sub></td><td align="center"><img src="media/blackfig.gif" width="200" alt="Clawd, Black-Figure"><br><sub><b>02</b> Black-Figure</sub></td><td align="center"><img src="media/heraldry.gif" width="200" alt="Clawd, Heraldry"><br><sub><b>03</b> Heraldry</sub></td><td align="center"><img src="media/tapestry.gif" width="200" alt="Clawd, Millefleur Tapestry"><br><sub><b>04</b> Millefleur Tapestry</sub></td></tr>
@@ -16,10 +16,10 @@ Unofficial fan art.
 
 ## Credits
 
-- **Styles 1–20 and the whole engine** (the 3D mascot model, the rig that watches your cursor, the gallery): [ChetasLua](https://github.com/ChetasLua), from the original *Clawd in Twenty Styles*.
-- **Styles 21–28** (`henrik-styles.js`): Henrik's experiments, eight looks from an upcoming project, re-drawn around Clawd. Only the look carries over.
+- **Art styles 1–20 and the whole engine** (the 3D mascot model, the rig that watches your cursor, the gallery): [ChetasLua](https://github.com/ChetasLua), from the original [*Clawd in Twenty Styles*](https://claude.ai/artifact/TrrKcRKsCUtAFYzyhF6tDH).
+- **Art styles 21–28** (`henrik-styles.js`): Henrik's experiments, eight looks from an upcoming project, re-drawn around Clawd. Only the look carries over.
 
-| # | Style | After |
+| # | Art style | After |
 |---|---|---|
 | 21 | Atlas Glyph Tiles | the FT "Atlas" glyph tiles, recoloured orange on azure |
 | 22 | Blob Mosaic | tile-mosaic blobs with glyph eyes on one chapter ground |
@@ -42,21 +42,25 @@ Then go to http://localhost:8790.
 
 Controls: move the pointer and they watch you · click a tile to spin it · drag to turn it · **W** wave · **D** dance · **H** hop · **Space** say cheese.
 
-Test views: `?grid=idle&cell=200` (every style in one pose), `?sheet=21,22&poses=idle,left,spin` (a pose sheet), `?solo=epoem&pose=idle&size=800` (one big tile).
+Test views: `?grid=idle&cell=200` (every art style in one pose), `?sheet=21,22&poses=idle,left,spin` (a pose sheet), `?solo=epoem&pose=idle&size=800` (one big tile).
 
 ## Regenerating the GIFs
 
-With the static server running, `node tools/record-gifs.mjs` records every registered style into `media/` (needs Playwright and ffmpeg; set `NODE_PATH=$(npm root -g)` if Playwright is installed globally).
+With the static server running, `node tools/record-gifs.mjs` records every registered art style into `media/` (needs Playwright and ffmpeg; set `NODE_PATH=$(npm root -g)` if Playwright is installed globally).
 
-## Adding a style
+## Adding an art style
 
-Each style is one call:
+Each art style is one call:
 
 ```js
 CM.style({ id, n, title, caption, init(env) { return state; }, draw(g, env, rig, state) { /* 400×400 tile */ } });
 ```
 
-`CM.build(rig.pose, view)` returns the projected mascot (faces, eyes, hulls), and `CM.raster(M, cols, rows)` turns it into a grid of cells. The gallery shows every registered style in order of `n`.
+`CM.build(rig.pose, view)` returns the projected mascot (faces, eyes, hulls), and `CM.raster(M, cols, rows)` turns it into a grid of cells. The gallery shows every registered art style in order of `n`.
+
+## Fork it, add to it
+
+Feel free to fork this repo and make it your own, or send a pull request with a new art style (or anything else). Every addition is welcome.
 
 ## License
 
