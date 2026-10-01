@@ -1,5 +1,5 @@
-/* Clawd in Twenty-Eight Styles — henrik-styles.js
-   Styles 21–28: Henrik's experiments, eight looks from an upcoming project, re-drawn around Clawd.
+/* Clawd in Twenty-Nine Styles — henrik-styles.js
+   Styles 21–29: Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd.
    Only the look is carried over.
    Same contract as every other style: CM.style({ id, n, title, caption, init(env), draw(g, env, rig, state) }),
    drawing into a virtual 400×400 tile. Load after core.js and before page.js. */
@@ -374,6 +374,324 @@ CM.style({
     zzz(g, M, TERMINAL);
     /* scanlines */
     g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < 400; y += 3) g.fillRect(0, y, 400, 1);
+  },
+});
+}
+/* ═════════ 29 · Frutiger Aero (glossy jelly, mid-2000s) ═════════ */
+{
+const { path, offsetPoly, bbox, centroid } = CM;
+const K = { light: '#ffbd5c', mid: '#ff7f17', deep: '#e0480a', edge: '#b23a06', eye: '#5c1d05', eyeLine: '#7a2809' };
+const inset = (p, d) => offsetPoly(p, d);   // offsetPoly already shrinks for either winding
+const SUN = [62, 46];
+function ribbon(g, x0, y0, cx, cy, x1, y1, w, a) {
+  g.save(); g.lineCap = 'round';
+  const gr = g.createLinearGradient(x0, y0, x1, y1);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.35, `rgba(255,255,255,${a})`); gr.addColorStop(.7, `rgba(255,255,255,${a * .6})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.strokeStyle = gr; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, cy, x1, y1); g.stroke();
+  g.lineWidth = 1.4; g.globalAlpha = .9; g.beginPath(); g.moveTo(x0, y0 - w / 2); g.quadraticCurveTo(cx, cy - w / 2, x1, y1 - w / 2); g.stroke();
+  g.restore();
+}
+/* halftone dot streak along a quadratic: dots fade toward both ends and the band's edges */
+function dotStreak(g, x0, y0, cx, cy, x1, y1, rows, gap, r0, a) {
+  g.fillStyle = `rgba(255,255,255,${a})`;
+  for (let u = 0; u <= 1.0001; u += 1 / 46) {
+    const x = (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * cx + u * u * x1, y = (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * cy + u * u * y1, fade = sin(PI * u);
+    for (let k = -rows; k <= rows; k++) { const rr = r0 * fade * (1 - abs(k) / (rows + 1)); if (rr > .25) { g.beginPath(); g.arc(x + k * 1.5, y + k * gap, rr, 0, TAU); g.fill(); } }
+  }
+}
+function cloud(g, x, y, s) {
+  for (const [dx, dy, r] of [[0, 0, 1], [-.9, .25, .7], [.95, .2, .75], [.4, -.45, .7], [-.4, -.3, .6]]) {
+    const R = r * s, gr = g.createRadialGradient(x + dx * s, y + dy * s, 0, x + dx * s, y + dy * s, R);
+    gr.addColorStop(0, 'rgba(255,255,255,.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x + dx * s, y + dy * s, R, 0, TAU); g.fill();
+  }
+}
+function hill(g, pts, top, bot, gloss) {
+  g.beginPath(); g.moveTo(-10, 410); for (const q of pts) g.lineTo(q[0], q[1]); g.lineTo(410, 410); g.closePath();
+  const y0 = min(...pts.map(q => q[1])), gr = g.createLinearGradient(0, y0, 0, y0 + 90); gr.addColorStop(0, top); gr.addColorStop(1, bot); g.fillStyle = gr; g.fill();
+  if (gloss) { g.save(); g.clip(); g.strokeStyle = `rgba(255,255,255,${gloss})`; g.lineWidth = 5; g.filter = 'blur(2px)'; g.beginPath(); g.moveTo(pts[0][0], pts[0][1] + 3); for (const q of pts) g.lineTo(q[0], q[1] + 3); g.stroke(); g.restore(); }
+}
+const curve = (x0, x1, base, amps) => { const o = []; for (let x = x0; x <= x1; x += 8) { let y = base; for (const [a, f, ph] of amps) y += a * sin(x * f + ph); o.push([x, y]); } return o; };
+function tower(g, x, yb, yt, w) {
+  const gr = g.createLinearGradient(x - w, 0, x + w, 0); gr.addColorStop(0, '#ffffff'); gr.addColorStop(.6, '#e8f3fb'); gr.addColorStop(1, '#a9c6dc');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(x - w, yb); g.lineTo(x - w * .45, yt); g.lineTo(x + w * .45, yt); g.lineTo(x + w, yb); g.closePath(); g.fill();
+}
+function scene(g, r) {
+  /* sky: deep azure → pale aqua at the horizon */
+  const sky = g.createLinearGradient(0, 0, 0, 260); sky.addColorStop(0, '#0d6fd6'); sky.addColorStop(.45, '#3aa3ef'); sky.addColorStop(.85, '#a5e0fb'); sky.addColorStop(1, '#d9f5ff');
+  g.fillStyle = sky; g.fillRect(0, 0, 400, 400);
+  /* the sun and its flare */
+  let gr = g.createRadialGradient(SUN[0], SUN[1], 0, SUN[0], SUN[1], 120); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(.12, 'rgba(255,255,240,.7)'); gr.addColorStop(.4, 'rgba(255,255,255,.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 400, 400);
+  for (const [k, rr, a] of [[.55, 9, .22], [.95, 16, .12], [1.35, 6, .25]]) { const x = SUN[0] + (200 - SUN[0]) * k, y = SUN[1] + (200 - SUN[1]) * k; g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.stroke(); g.fillStyle = `rgba(200,240,255,${a * .6})`; g.fill(); }
+  for (const [x, y, s] of [[300, 70, 22], [180, 120, 14], [365, 150, 16], [95, 150, 12]]) cloud(g, x, y, s);
+  /* the glossy swooshes and their halftone dot streaks */
+  ribbon(g, -40, 190, 160, 40, 450, 70, 30, .32);
+  ribbon(g, -30, 230, 220, 120, 440, 140, 12, .4);
+  dotStreak(g, 20, 150, 200, 30, 420, 40, 3, 5, 2.2, .55);
+  dotStreak(g, 120, 210, 280, 140, 430, 120, 2, 4.5, 1.6, .5);
+  /* far turbine towers (blades are live) */
+  tower(g, 96, 252, 186, 2.4); tower(g, 324, 250, 128, 4.2);
+  /* hills, far to near, each with a glossy rim */
+  hill(g, curve(-10, 410, 238, [[8, .018, .4], [5, .041, 2]]), '#9fdc7a', '#62b23d', .5);
+  hill(g, curve(-10, 410, 258, [[10, .013, 2.6], [4, .05, .3]]), '#7fd23d', '#3f9a1e', .55);
+  /* the meadow */
+  gr = g.createLinearGradient(0, 270, 0, 400); gr.addColorStop(0, '#8ee23f'); gr.addColorStop(.5, '#58c21f'); gr.addColorStop(1, '#2f8f12');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(-10, 400); for (const q of curve(-10, 410, 280, [[6, .011, 1], [3, .04, 4]])) g.lineTo(q[0], q[1]); g.lineTo(410, 400); g.closePath(); g.fill();
+  /* soft mown stripes */
+  g.save(); g.globalAlpha = .05; g.fillStyle = '#fff'; for (let i = -4; i < 10; i++) { g.beginPath(); g.moveTo(i * 60, 400); g.lineTo(i * 60 + 30, 400); g.lineTo(200 + i * 6 + 3, 280); g.lineTo(200 + i * 6, 280); g.closePath(); g.fill(); } g.restore();
+  /* daisies */
+  for (let i = 0; i < 26; i++) {
+    const y = r.range(292, 396), x = r.range(6, 394); if (abs(x - 200) < 90 && y < 350) continue;
+    const s = .6 + (y - 290) / 110 * 1.2;
+    g.fillStyle = 'rgba(255,255,255,.95)'; for (let k = 0; k < 6; k++) { const a = k * TAU / 6; g.beginPath(); g.ellipse(x + cos(a) * 2.2 * s, y + sin(a) * 1.3 * s, 1.7 * s, 1.1 * s, a, 0, TAU); g.fill(); }
+    g.fillStyle = '#ffd21f'; g.beginPath(); g.arc(x, y, 1.3 * s, 0, TAU); g.fill();
+  }
+}
+function blades(g, x, y, len, ang, w) {
+  g.save(); g.translate(x, y);
+  for (let i = 0; i < 3; i++) {
+    g.save(); g.rotate(ang + i * TAU / 3);
+    const gr = g.createLinearGradient(-w, 0, w, 0); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#b7d2e6'); g.fillStyle = gr;
+    g.beginPath(); g.moveTo(-w * .6, 0); g.quadraticCurveTo(-w * 1.1, -len * .35, -w * .15, -len); g.lineTo(w * .25, -len * .98); g.quadraticCurveTo(w * .7, -len * .4, w * .6, 0); g.closePath(); g.fill(); g.restore();
+  }
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, w * .9, 0, TAU); g.fill(); g.strokeStyle = 'rgba(120,160,190,.6)'; g.lineWidth = .8; g.stroke();
+  g.restore();
+}
+/* a soap bubble: clear middle, iridescent edge, a window highlight and a small counter-glint */
+function bubble(g, x, y, r, a = 1) {
+  g.save(); g.globalAlpha = a;
+  const gr = g.createRadialGradient(x - r * .2, y - r * .25, r * .1, x, y, r);
+  gr.addColorStop(0, 'rgba(255,255,255,.04)'); gr.addColorStop(.72, 'rgba(190,240,255,.12)'); gr.addColorStop(.9, 'rgba(255,190,240,.32)'); gr.addColorStop(1, 'rgba(255,255,255,.7)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = max(.7, r * .05); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = max(1, r * .13); g.lineCap = 'round'; g.beginPath(); g.arc(x, y, r * .7, PI * 1.1, PI * 1.45); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(x + r * .45, y + r * .45, max(.6, r * .08), 0, TAU); g.fill();
+  g.restore();
+}
+function bubbles(g, S, t, back) {
+  for (const b of S.bubbles) {
+    if (b.back !== back) continue;
+    const u = (b.ph + t * b.v) % 1, y = 420 - u * 470, x = b.x + sin(t * b.w + b.ph * 9) * 10, a = min(1, u * 6, (1 - u) * 5);
+    bubble(g, x, y, b.r * (1 + .04 * sin(t * 3 + b.ph * 5)), a);
+  }
+}
+/* the whole mascot as one fused lump of tangerine jelly, painted on its own layer so overlaps never double up:
+   rounded parts plus a bridge that roots every limb in the body, a blurred inner depth along the true outline,
+   a glowing core, air bubbles, light pooling at the bottom, a window gloss on top, and a jiggle when it moves */
+/* round a polygon's corners by about r px: resample its outline at N even steps, then blur the points along it.
+   Everything here moves continuously with the input, so a turning part never snaps (merging or clamping corners did) */
+function roundPoly(P, r, N = 32) {
+  const n = P.length, L = [0];
+  for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; L.push(L[i] + hypot(b[0] - a[0], b[1] - a[1])); }
+  const per = L[n]; if (per < 1e-3) return P.slice();
+  const step = per / N, X = new Float64Array(N), Y = new Float64Array(N), TX = new Float64Array(N), TY = new Float64Array(N);
+  for (let k = 0, i = 0; k < N; k++) {
+    const d = k * step; while (i < n - 1 && L[i + 1] < d) i++;
+    const a = P[i], b = P[(i + 1) % n], u = (d - L[i]) / (L[i + 1] - L[i] || 1); X[k] = a[0] + (b[0] - a[0]) * u; Y[k] = a[1] + (b[1] - a[1]) * u;
+  }
+  /* each [¼ ½ ¼] pass spreads by √½ sample: pick the pass count from the radius wanted */
+  const passes = min(240, round(2 * (r / step) ** 2));
+  for (let p = 0; p < passes; p++) {
+    TX.set(X); TY.set(Y);
+    for (let k = 0; k < N; k++) { const a = (k + N - 1) % N, c = (k + 1) % N; X[k] = .25 * TX[a] + .5 * TX[k] + .25 * TX[c]; Y[k] = .25 * TY[a] + .5 * TY[k] + .25 * TY[c]; }
+  }
+  const Q = new Array(N); for (let k = 0; k < N; k++) Q[k] = [X[k], Y[k]];
+  return Q;
+}
+/* the jelly body hangs a little lower than the model's box: every bottom corner (y bit clear) is pushed down along its edge */
+/* the jiggle: the whole jelly squashes and stretches about the point between its feet, so nothing drifts or twitches */
+const squish = (g, M, S) => { const fy = max(...M.feet.map(q => q[1])), a = S.wob || 0; g.translate(M.center[0], fy); g.scale(1 + a, 1 - a); g.translate(-M.center[0], -fy); };
+const DROP = .03, FACE_IX = { front: [4, 5, 7, 6], back: [1, 0, 2, 3], right: [5, 1, 3, 7], left: [0, 4, 6, 2], top: [6, 7, 3, 2], bottom: [0, 1, 5, 4] };
+const bodyPts = pt => pt.s.map((q, i) => i & 2 ? [q[0], q[1]] : [q[0] + (q[0] - pt.s[i + 2][0]) * DROP, q[1] + (q[1] - pt.s[i + 2][1]) * DROP]);
+const roundHull = pt => {
+  const H = pt.name === 'body' ? CM.hull(bodyPts(pt)) : pt.hull, bb = bbox(H), m = min(bb[2] - bb[0], bb[3] - bb[1]);
+  return pt.name === 'body' ? roundPoly(H, m * .13, 64) : roundPoly(H, m * .2);
+};
+/* a limb's attached face pushed toward the body centre: fills the gap the body's rounded corners would leave */
+function bridge(face, c, k) {
+  const fc = centroid(face.pts), d = [(c[0] - fc[0]) * k, (c[1] - fc[1]) * k];
+  const H = CM.hull(face.pts.map(q => [q[0], q[1]]).concat(face.pts.map(q => [q[0] + d[0], q[1] + d[1]]))), bb = bbox(H);
+  return roundPoly(H, min(bb[2] - bb[0], bb[3] - bb[1]) * .2);
+}
+/* a leg's hip: flared sideways (across the leg's own axis) where it meets the body, tapering into the leg,
+   so it grows out of the body. Box corners: x = bit 0, y = bit 1, z = bit 2, so 2,3,6,7 are the top and 0,1,4,5 the bottom */
+function hip(pt) {
+  const tc = centroid([2, 3, 6, 7].map(i => pt.s[i])), bc = centroid([0, 1, 4, 5].map(i => pt.s[i]));
+  const L = hypot(bc[0] - tc[0], bc[1] - tc[1]) || 1, u = [(bc[0] - tc[0]) / L, (bc[1] - tc[1]) / L], n = [-u[1], u[0]];
+  let hw = 0; for (const q of pt.s) hw = max(hw, abs((q[0] - tc[0]) * n[0] + (q[1] - tc[1]) * n[1]));
+  const D = CM.DIM, fb = (.45 + DROP * D.BH) / (D.LH + .45);
+  const at = (along, side) => [tc[0] + u[0] * along + n[0] * side, tc[1] + u[1] * along + n[1] * side];
+  const H = CM.hull([at(L * (fb - .3), -hw), at(L * (fb - .3), hw), at(L * fb, -hw * 1.35), at(L * fb, hw * 1.35), at(L * (fb + .3), -hw * .95), at(L * (fb + .3), hw * .95)]);
+  return roundPoly(H, hw * .35);
+}
+function shapes(M) {
+  const c = M.center, out = [];
+  for (const pt of M.order) {
+    out.push(roundHull(pt));
+    if (pt.name[0] === 'l') { out.push(bridge(pt.f.top, c, .32)); out.push(hip(pt)); }
+    else if (pt.name === 'armL') out.push(bridge(pt.f.right, c, .22));
+    else if (pt.name === 'armR') out.push(bridge(pt.f.left, c, .22));
+  }
+  return out;
+}
+const clearLayer = L => { L.g.save(); L.g.setTransform(1, 0, 0, 1, 0, 0); L.g.clearRect(0, 0, L.c.width, L.c.height); L.g.restore(); };
+function jelly(g, M, S, t, env) {   // drawn unsquashed on its layer, squeezed by slim() when stamped
+  const c = M.center, U = shapes(M), all = bbox(U.flat()), w = all[2] - all[0], h = all[3] - all[1];
+  const body = M.parts.body, BP = roundHull(body), bb = bbox(BP), bw = bb[2] - bb[0], bh = bb[3] - bb[1], m = min(bw, bh);
+  const J = S.J, O = S.O, j = J.g, o = O.g, shape = q => { q.beginPath(); for (const P of U) path(q, P, true); };
+  clearLayer(J); clearLayer(O);
+  /* base: light top-left to deep bottom-right */
+  let gr = j.createLinearGradient(all[0], all[1], all[0] + w * .6, all[3]);
+  gr.addColorStop(0, K.light); gr.addColorStop(.4, K.mid); gr.addColorStop(1, K.deep);
+  shape(j); j.fillStyle = gr; j.fill();
+  /* everything after this stays inside the jelly */
+  j.globalCompositeOperation = 'source-atop';
+  /* a glowing core, as if the sun were caught inside */
+  gr = j.createRadialGradient(c[0] + bw * .05, c[1] + bh * .12, 0, c[0], c[1] + bh * .1, max(bw, bh) * .55);
+  gr.addColorStop(0, 'rgba(255,215,110,.4)'); gr.addColorStop(.6, 'rgba(255,180,70,.1)'); gr.addColorStop(1, 'rgba(255,190,90,0)'); j.fillStyle = gr; j.fillRect(all[0], all[1], w, h);
+  /* the body's faces, rounded and faint, so the turn still reads */
+  const BS = bodyPts(body);
+  for (const f of body.faces) {
+    if (!f.vis || f.name === 'front') continue; const fb = bbox(f.pts), fm = min(fb[2] - fb[0], fb[3] - fb[1]); if (fm < 2) continue;
+    j.fillStyle = f.name === 'top' ? 'rgba(255,238,200,.3)' : f.name === 'bottom' ? 'rgba(150,40,0,.2)' : `rgba(170,50,5,${(.22 * (1 - f.light)).toFixed(3)})`;
+    j.beginPath(); path(j, roundPoly(FACE_IX[f.name].map(i => BS[i]), fm * .2), true); j.fill();
+  }
+  /* a soft crease where a nub sits in front of the body */
+  for (const [arm, side] of [['armL', 'left'], ['armR', 'right']]) {
+    const k = CM.clamp(-CM.area(body.f[side].pts) / (m * m * .25), 0, 1); if (k < .01) continue;   // fades in as that side of the body turns toward us
+    j.strokeStyle = `rgba(175,55,5,${(.22 * k).toFixed(3)})`; j.lineWidth = m * .03; j.beginPath(); path(j, roundHull(M.parts[arm]), true); j.stroke();
+  }
+  /* jelly depth: stacked rings (the jelly minus its own insets) darken and thicken every edge; a thin pale one is the rim */
+  const insets = d => { o.beginPath(); for (const P of U) { const q = bbox(P); path(o, inset(P, min(d, min(q[2] - q[0], q[3] - q[1]) * .4)), true); } };
+  const k = env.px, x0 = max(0, floor((all[0] - 4) * k)), y0 = max(0, floor((all[1] - 4) * k)), sw = min(O.c.width, ceil((all[2] + 4) * k)) - x0, sh = min(O.c.height, ceil((all[3] + 4) * k)) - y0;
+  if (sw > 0 && sh > 0) {
+    for (const [d, a] of [[m * .22, .14], [m * .14, .15], [m * .085, .17], [m * .045, .2], [m * .018, .22]]) { o.globalAlpha = a; o.fillStyle = K.edge; shape(o); o.fill(); o.globalAlpha = 1; o.globalCompositeOperation = 'destination-out'; insets(d); o.fill(); o.globalCompositeOperation = 'source-over'; }
+    j.drawImage(O.c, x0, y0, sw, sh, x0 / k, y0 / k, sw / k, sh / k);
+    clearLayer(O); o.fillStyle = 'rgba(255,236,210,.6)'; shape(o); o.fill(); o.globalCompositeOperation = 'destination-out'; insets(1.3); o.fill(); o.globalCompositeOperation = 'source-over';
+    j.drawImage(O.c, x0, y0, sw, sh, x0 / k, y0 / k, sw / k, sh / k);
+  }
+  /* tiny air bubbles caught in the jelly, drifting up */
+  for (const b of S.air) {
+    const u = (b.ph + t * b.v) % 1, x = bb[0] + bw * (b.x + .03 * sin(t * 2 + b.ph * 9)), y = bb[3] - bh * (.12 + u * .78), r = b.r * m * .02, a = sin(PI * u) * .85;
+    j.strokeStyle = `rgba(255,245,225,${a.toFixed(3)})`; j.lineWidth = .8; j.beginPath(); j.arc(x, y, r, 0, TAU); j.stroke();
+    j.fillStyle = `rgba(255,255,255,${(a * .9).toFixed(3)})`; j.beginPath(); j.arc(x - r * .35, y - r * .35, r * .3, 0, TAU); j.fill();
+  }
+  /* light passing through, pooling at the bottom */
+  gr = j.createRadialGradient(c[0], all[3], 0, c[0], all[3], w * .55);
+  gr.addColorStop(0, 'rgba(255,225,120,.55)'); gr.addColorStop(.5, 'rgba(255,190,80,.16)'); gr.addColorStop(1, 'rgba(255,190,80,0)'); j.fillStyle = gr; j.fillRect(all[0], all[1], w, h);
+  /* the glossy window: an inset cap over the top of the body */
+  j.save(); j.beginPath(); path(j, inset(BP, m * .07), true); j.clip();
+  gr = j.createLinearGradient(0, bb[1], 0, bb[1] + bh * .52);
+  gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.6, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  j.fillStyle = gr; j.fillRect(bb[0], bb[1], bw, bh * .52);
+  j.restore();
+  /* hot spots: a big one on the body, small ones on the visible nubs and legs */
+  j.fillStyle = 'rgba(255,255,255,.95)';
+  j.beginPath(); j.ellipse(bb[0] + bw * .25, bb[1] + bh * .19, bw * .085, bh * .05, -.5, 0, TAU); j.fill();
+  for (const pt of M.order) {
+    if (pt === body) continue; const q = bbox(pt.s), lw = q[2] - q[0], lh = q[3] - q[1], leg = pt.name[0] === 'l';
+    const x = q[0] + lw * .32, y = leg ? q[1] + lh * .8 : q[1] + lh * .28;
+    const k = CM.clamp(1 - edgeNear(x, y, BP).d / 6, 0, 1); if (k < .01) continue;   // fades as it slips behind the body
+    j.globalAlpha = .85 * k; j.beginPath(); j.ellipse(x, y, max(1, lw * .13), max(1.2, lh * (leg ? .13 : .1)), leg ? 0 : -.5, 0, TAU); j.fill();
+  }
+  j.globalAlpha = 1; j.globalCompositeOperation = 'source-over';
+  /* the layer goes down at once, translucent, so the meadow shows through */
+  g.save(); g.globalAlpha = .93; squish(g, M, S); env.stamp(g, J); g.restore();
+  return BP;
+}
+/* eyes live in the jelly: clipped to the rounded body, so they slide out of sight round a corner instead of poking out */
+/* nearest point on a polygon's edge, and the signed distance to it (positive inside) */
+function edgeNear(x, y, P) {
+  let d = 1e9, q = P[0];
+  for (let i = 0, n = P.length; i < n; i++) {
+    const a = P[i], b = P[(i + 1) % n], vx = b[0] - a[0], vy = b[1] - a[1], l = vx * vx + vy * vy || 1, k = CM.clamp(((x - a[0]) * vx + (y - a[1]) * vy) / l, 0, 1);
+    const px = a[0] + vx * k, py = a[1] + vy * k, dd = hypot(x - px, y - py); if (dd < d) { d = dd; q = [px, py]; }
+  }
+  return { d: CM.inPoly(x, y, P) ? d : -d, q };
+}
+/* eyes live in the jelly: near the rounded edge an eye is nudged back onto the body and narrowed a little,
+   as if it wrapped round the curve, so both eyes always stay on the body and never stick out */
+function eyes(g, M, BP) {
+  g.save(); g.beginPath(); path(g, inset(BP, 1.5), true); g.clip();
+  const ctr = centroid(BP);
+  for (const e of M.eyes) {
+    if (!e.vis) continue;
+    const sz = e.size, keep = sz * 1.15, { d, q } = edgeNear(e.c[0], e.c[1], BP);
+    let dx = 0, dy = 0, sc = 1;
+    if (d < keep) {
+      let nx = e.c[0] - q[0], ny = e.c[1] - q[1], nl = hypot(nx, ny);
+      if (d < 0 || nl < 1e-3) { nx = ctr[0] - q[0]; ny = ctr[1] - q[1]; nl = hypot(nx, ny) || 1; }
+      nx /= nl; ny /= nl; dx = q[0] + nx * keep - e.c[0]; dy = q[1] + ny * keep - e.c[1];
+      sc = .7 + .3 * CM.clamp(d / keep, 0, 1);
+    }
+    g.save(); g.translate(e.c[0] + dx, e.c[1] + dy); g.scale(sc, sc); g.translate(-e.c[0], -e.c[1]);
+    if (e.poly) {
+      const bb = bbox(e.poly), gr = g.createLinearGradient(0, bb[1], 0, bb[3]);
+      gr.addColorStop(0, '#2c0c02'); gr.addColorStop(.6, K.eye); gr.addColorStop(1, '#b8460f');
+      g.fillStyle = gr; g.beginPath(); path(g, e.poly, true); g.fill();
+      g.strokeStyle = 'rgba(255,230,200,.55)'; g.lineWidth = 1; g.stroke();
+      if (e.open > .45) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(e.glint[0] - sz * .12, e.glint[1] - sz * .05, sz * .2, sz * .26, -.3, 0, TAU); g.fill(); g.globalAlpha = .7; g.beginPath(); g.arc(e.glint[0] + sz * .02, e.glint[1] + sz * .62, sz * .09, 0, TAU); g.fill(); g.globalAlpha = 1; }
+    }
+    if (e.lines.length) { g.strokeStyle = K.eyeLine; g.lineWidth = e.mode === 'dizzy' ? max(1.2, sz * .2) : max(1.8, sz * .34); g.lineCap = 'round'; g.lineJoin = 'round'; for (const l of e.lines) { g.beginPath(); path(g, l, false); g.stroke(); } }
+    g.restore();
+  }
+  g.restore();
+}
+/* dizzy: little glossy four-point sparkles */
+function sparkles(g, M, front) {
+  for (const s of M.stars) {
+    if (s.front !== front) continue; const r = 9 * s.k * (1 + s.z * .03);
+    g.save(); g.translate(s.x, s.y); g.rotate(s.a * .8); g.globalAlpha = s.k;
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, r * 1.6); gr.addColorStop(0, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r * 1.6, 0, TAU); g.fill();
+    g.fillStyle = '#fff6a8'; g.strokeStyle = 'rgba(255,170,30,.9)'; g.lineWidth = 1;
+    g.beginPath(); for (let i = 0; i < 8; i++) { const a = i * PI / 4, q = i & 1 ? r * .28 : r; g.lineTo(cos(a) * q, sin(a) * q); } g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+}
+function zs(g, M) {
+  const k = M.pose.sleep; if (k < .3) return; const t = M.pose.t || 0, top = M.top;
+  g.save(); g.textAlign = 'center'; g.lineJoin = 'round';
+  for (let i = 0; i < 3; i++) {
+    const u = (t * .45 + i / 3) % 1, x = top[0] + 20 + u * 26 + sin(u * 6 + i) * 4, y = top[1] - 12 - u * 46;
+    g.globalAlpha = k * sin(PI * u); g.font = `800 ${round(11 + u * 12)}px ${CM.FONT.sans}`;
+    g.strokeStyle = 'rgba(20,110,200,.75)'; g.lineWidth = 3.5; g.strokeText('z', x, y); g.fillStyle = '#fff'; g.fillText('z', x, y);
+  }
+  g.restore();
+}
+CM.style({
+  id: 'eaero', n: 29, title: 'Frutiger Aero', caption: 'Glossy eco-tech, mid-2000s',
+  init(env) {
+    const r = env.rnd;
+    return {
+      bg: env.layer(g => scene(g, r)),
+      air: Array.from({ length: 6 }, () => ({ x: r.range(.15, .85), r: r.range(.6, 1.6), v: r.range(.05, .12), ph: r() })),
+      jig: 0, last: null, J: env.layer(() => {}), O: env.layer(() => {}),
+      bubbles: Array.from({ length: 14 }, (_, i) => ({ x: r.range(14, 386), r: r.range(5, 17), v: r.range(.035, .07), w: r.range(.6, 1.3), ph: r(), back: i % 5 !== 0 })),
+    };
+  },
+  draw(g, env, rig, S) {
+    const t = env.t, p = rig.pose;
+    env.stamp(g, S.bg);
+    blades(g, 96, 186, 22, t * 1.1 + 1, 2.2); blades(g, 324, 128, 46, t * .8, 4);
+    bubbles(g, S, t, true);
+    const M = CM.build(p, { cx: 200, cy: 214, s: 14 });
+    /* the shadow, lit orange through the jelly */
+    const c = centroid(M.shadow), sb = bbox(M.shadow), rx = (sb[2] - sb[0]) / 2, ry = (sb[3] - sb[1]) / 2;
+    g.save(); g.globalAlpha = M.shadowAlpha; g.translate(c[0], c[1]); g.scale(1, ry / rx);
+    let gr = g.createRadialGradient(0, 0, 0, 0, 0, rx * 1.05); gr.addColorStop(0, 'rgba(255,150,40,.55)'); gr.addColorStop(.35, 'rgba(230,120,30,.35)'); gr.addColorStop(.7, 'rgba(30,90,10,.28)'); gr.addColorStop(1, 'rgba(30,90,10,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx * 1.05, 0, TAU); g.fill(); g.restore();
+    /* jiggle: a spring fed by how fast the pose moves, decaying in about half a second */
+    const L = S.last;
+    if (L) S.jig = min(5, S.jig * .9 + (abs(p.yaw - L[0]) + abs(p.pitch - L[1]) + abs(p.roll - L[2]) + abs(p.hop - L[3]) * .15 + abs(p.sq - L[4]) * 2) * 7);
+    S.last = [p.yaw, p.pitch, p.roll, p.hop, p.sq]; S.wob = S.jig * .008 * sin(t * 14);
+    g.save(); squish(g, M, S); sparkles(g, M, false); g.restore();
+    const BP = jelly(g, M, S, t, env);
+    g.save(); squish(g, M, S);
+    eyes(g, M, BP);
+    sparkles(g, M, true);
+    g.restore();
+    bubbles(g, S, t, false);
+    zs(g, M);
   },
 });
 }
