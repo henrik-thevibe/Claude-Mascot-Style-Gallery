@@ -499,6 +499,8 @@ function roundPoly(P, r) {
 }
 /* the jelly body hangs lower than the model's box: every bottom corner (y bit clear) is pushed down along its edge,
    so the body swallows the top of the legs and leaves short gummy stubs */
+/* SLIM squeezes the whole jelly sideways about its centre, so the longer body doesn't read as fat */
+const SLIM = .84, slim = (g, M) => { g.translate(M.center[0], 0); g.scale(SLIM, 1); g.translate(-M.center[0], 0); };
 const DROP = .13, FACE_IX = { front: [4, 5, 7, 6], back: [1, 0, 2, 3], right: [5, 1, 3, 7], left: [0, 4, 6, 2], top: [6, 7, 3, 2], bottom: [0, 1, 5, 4] };
 const bodyPts = pt => pt.s.map((q, i) => i & 2 ? [q[0], q[1]] : [q[0] + (q[0] - pt.s[i + 2][0]) * DROP, q[1] + (q[1] - pt.s[i + 2][1]) * DROP]);
 const roundHull = pt => {
@@ -536,7 +538,7 @@ function shapes(M, amp, t) {
   return out.map(P => wobble(P, c, amp, t));
 }
 const clearLayer = L => { L.g.save(); L.g.setTransform(1, 0, 0, 1, 0, 0); L.g.clearRect(0, 0, L.c.width, L.c.height); L.g.restore(); };
-function jelly(g, M, S, t, env) {
+function jelly(g, M, S, t, env) {   // drawn unsquashed on its layer, squeezed by slim() when stamped
   const c = M.center, U = shapes(M, S.jig, t), all = bbox(U.flat()), w = all[2] - all[0], h = all[3] - all[1];
   const body = M.parts.body, BP = wobble(roundHull(body), c, S.jig, t), bb = bbox(BP), bw = bb[2] - bb[0], bh = bb[3] - bb[1], m = min(bw, bh);
   const J = S.J, O = S.O, j = J.g, o = O.g, shape = q => { q.beginPath(); for (const P of U) path(q, P, true); };
@@ -594,32 +596,41 @@ function jelly(g, M, S, t, env) {
   }
   j.globalAlpha = 1; j.globalCompositeOperation = 'source-over';
   /* the layer goes down at once, translucent, so the meadow shows through */
-  g.save(); g.globalAlpha = .93; env.stamp(g, J); g.restore();
+  g.save(); g.globalAlpha = .93; slim(g, M); env.stamp(g, J); g.restore();
   return BP;
 }
 /* eyes live in the jelly: clipped to the rounded body, so they slide out of sight round a corner instead of poking out */
-function edgeDist(x, y, P) {
-  let d = 1e9;
+/* nearest point on a polygon's edge, and the signed distance to it (positive inside) */
+function edgeNear(x, y, P) {
+  let d = 1e9, q = P[0];
   for (let i = 0, n = P.length; i < n; i++) {
     const a = P[i], b = P[(i + 1) % n], vx = b[0] - a[0], vy = b[1] - a[1], l = vx * vx + vy * vy || 1, k = CM.clamp(((x - a[0]) * vx + (y - a[1]) * vy) / l, 0, 1);
-    d = min(d, hypot(x - a[0] - vx * k, y - a[1] - vy * k));
+    const px = a[0] + vx * k, py = a[1] + vy * k, dd = hypot(x - px, y - py); if (dd < d) { d = dd; q = [px, py]; }
   }
-  return CM.inPoly(x, y, P) ? d : -d;
+  return { d: CM.inPoly(x, y, P) ? d : -d, q };
 }
+/* eyes live in the jelly: near the rounded edge an eye is nudged back onto the body and narrowed a little,
+   as if it wrapped round the curve, so both eyes always stay on the body and never stick out */
 function eyes(g, M, BP) {
   g.save(); g.beginPath(); path(g, inset(BP, 1.5), true); g.clip();
+  const ctr = centroid(BP);
   for (const e of M.eyes) {
     if (!e.vis) continue;
-    /* near the rounded edge the eye wraps away: it shrinks and fades instead of being cut */
-    const d = edgeDist(e.c[0], e.c[1], BP), a = CM.clamp((d - e.size * .3) / (e.size * .55), 0, 1); if (a < .02) continue;
-    const sz = e.size, sc = .55 + .45 * a;
-    g.save(); g.globalAlpha = a; g.translate(e.c[0], e.c[1]); g.scale(sc, sc); g.translate(-e.c[0], -e.c[1]);
+    const sz = e.size, keep = sz * 1.15, { d, q } = edgeNear(e.c[0], e.c[1], BP);
+    let dx = 0, dy = 0, sc = 1;
+    if (d < keep) {
+      let nx = e.c[0] - q[0], ny = e.c[1] - q[1], nl = hypot(nx, ny);
+      if (d < 0 || nl < 1e-3) { nx = ctr[0] - q[0]; ny = ctr[1] - q[1]; nl = hypot(nx, ny) || 1; }
+      nx /= nl; ny /= nl; dx = q[0] + nx * keep - e.c[0]; dy = q[1] + ny * keep - e.c[1];
+      sc = .7 + .3 * CM.clamp(d / keep, 0, 1);
+    }
+    g.save(); g.translate(e.c[0] + dx, e.c[1] + dy); g.scale(sc, sc); g.translate(-e.c[0], -e.c[1]);
     if (e.poly) {
       const bb = bbox(e.poly), gr = g.createLinearGradient(0, bb[1], 0, bb[3]);
       gr.addColorStop(0, '#2c0c02'); gr.addColorStop(.6, K.eye); gr.addColorStop(1, '#b8460f');
       g.fillStyle = gr; g.beginPath(); path(g, e.poly, true); g.fill();
       g.strokeStyle = 'rgba(255,230,200,.55)'; g.lineWidth = 1; g.stroke();
-      if (e.open > .45) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(e.glint[0] - sz * .12, e.glint[1] - sz * .05, sz * .2, sz * .26, -.3, 0, TAU); g.fill(); g.globalAlpha = .7 * a; g.beginPath(); g.arc(e.glint[0] + sz * .02, e.glint[1] + sz * .62, sz * .09, 0, TAU); g.fill(); g.globalAlpha = a; }
+      if (e.open > .45) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(e.glint[0] - sz * .12, e.glint[1] - sz * .05, sz * .2, sz * .26, -.3, 0, TAU); g.fill(); g.globalAlpha = .7; g.beginPath(); g.arc(e.glint[0] + sz * .02, e.glint[1] + sz * .62, sz * .09, 0, TAU); g.fill(); g.globalAlpha = 1; }
     }
     if (e.lines.length) { g.strokeStyle = K.eyeLine; g.lineWidth = e.mode === 'dizzy' ? max(1.2, sz * .2) : max(1.8, sz * .34); g.lineCap = 'round'; g.lineJoin = 'round'; for (const l of e.lines) { g.beginPath(); path(g, l, false); g.stroke(); } }
     g.restore();
@@ -669,14 +680,18 @@ CM.style({
     g.save(); g.globalAlpha = M.shadowAlpha; g.translate(c[0], c[1]); g.scale(1, ry / rx);
     let gr = g.createRadialGradient(0, 0, 0, 0, 0, rx * 1.05); gr.addColorStop(0, 'rgba(255,150,40,.55)'); gr.addColorStop(.35, 'rgba(230,120,30,.35)'); gr.addColorStop(.7, 'rgba(30,90,10,.28)'); gr.addColorStop(1, 'rgba(30,90,10,0)');
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx * 1.05, 0, TAU); g.fill(); g.restore();
+    g.save(); slim(g, M);
     sparkles(g, M, false);
     /* jiggle: a spring fed by how fast the pose moves */
     const L = S.last;
     if (L) S.jig = min(5, S.jig * .9 + (abs(p.yaw - L[0]) + abs(p.pitch - L[1]) + abs(p.roll - L[2]) + abs(p.hop - L[3]) * .15 + abs(p.sq - L[4]) * 2) * 7);
     S.last = [p.yaw, p.pitch, p.roll, p.hop, p.sq];
+    g.restore();
     const BP = jelly(g, M, S, t, env);
+    g.save(); slim(g, M);
     eyes(g, M, BP);
     sparkles(g, M, true);
+    g.restore();
     bubbles(g, S, t, false);
     zs(g, M);
   },
