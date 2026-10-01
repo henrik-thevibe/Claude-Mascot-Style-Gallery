@@ -23,7 +23,7 @@ Unofficial fan art, built on ChetasLua's [original gallery](https://claude.ai/ar
 
 - **Art styles 1–20 and the whole engine** (the 3D mascot model, the rig that watches your cursor, the gallery): [ChetasLua](https://github.com/ChetasLua), from the original [*Clawd in Twenty Styles*](https://claude.ai/artifact/TrrKcRKsCUtAFYzyhF6tDH).
 - **Art styles 21–29** (`henrik-styles.js`): Henrik's experiments, nine looks from an upcoming project, re-drawn around Clawd. Only the look carries over.
-- **Art styles 30–48** (`henrik-styles.js`): after the plates of *Superman in Flight*, a film that carries one hero through twenty plates of art history. Nineteen of those looks, re-drawn around Clawd (the petroglyph plate is left out, as 01 Cave Painting already covers it).
+- **Art styles 30–48** (`henrik-styles.js`): inspired by the plates of [*Superman in Flight*](https://claude.ai/artifact/7F2XhpmgiuyxHKgQ9Vgr9Q), a film that carries one hero through twenty plates of art history. Nineteen of those looks, re-drawn around Clawd (the petroglyph plate is left out, as 01 Cave Painting already covers it).
 
 | # | Art style | After |
 |---|---|---|
