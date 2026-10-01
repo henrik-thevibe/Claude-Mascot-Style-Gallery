@@ -2313,9 +2313,8 @@ CM.style({
     CM.drawZzz(g, M, { color: '#2d6fa8', font: UI });
     g.restore();
     label(g, 'Clawd', 165, 290, '#1e2a33', 9);
-    /* frozen: the window frosts over, the title admits it, the busy ring spins */
+    /* frozen: the title admits it, the busy ring spins */
     if (S.busy > .01) {
-      g.fillStyle = `rgba(255,255,255,${(.5 * S.busy).toFixed(3)})`; rr(g, ...WIN, 7); g.fill();
       g.globalAlpha = S.busy; label(g, 'Clawd Center (Not Responding)', WIN[0] + 10, WIN[1] + 9, '#0d1a24', 9, 400, 'left');
       const cx = 250, cy = 120; g.lineWidth = 4; g.lineCap = 'round';
       for (let k = 0; k < 10; k++) { g.strokeStyle = `rgba(40,140,230,${(.1 + k * .09).toFixed(3)})`; const a = t * 7 + k * .32; g.beginPath(); g.arc(cx, cy, 9, a, a + .3); g.stroke(); }
