@@ -2317,8 +2317,11 @@ CM.style({
     if (S.busy > .01) {
       g.fillStyle = `rgba(255,255,255,${(.5 * S.busy).toFixed(3)})`; rr(g, ...WIN, 7); g.fill();
       g.globalAlpha = S.busy; label(g, 'Clawd Center (Not Responding)', WIN[0] + 10, WIN[1] + 9, '#0d1a24', 9, 400, 'left');
-      const cx = 250, cy = 120; g.lineWidth = 4; g.lineCap = 'round';
-      for (let k = 0; k < 10; k++) { g.strokeStyle = `rgba(40,140,230,${(.1 + k * .09).toFixed(3)})`; const a = t * 7 + k * .32; g.beginPath(); g.arc(cx, cy, 9, a, a + .3); g.stroke(); }
+      /* the busy ring sits in the middle of Clawd's panel, in front of him, on a pale halo so it reads over the orange */
+      const cx = 165, cy = 196, R = 14;
+      g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 9; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
+      g.lineWidth = 5; g.lineCap = 'round';
+      for (let k = 0; k < 10; k++) { g.strokeStyle = `rgba(40,140,230,${(.1 + k * .09).toFixed(3)})`; const a = t * 7 + k * .32; g.beginPath(); g.arc(cx, cy, R, a, a + .3); g.stroke(); }
       g.globalAlpha = 1;
     }
     /* clock gadget hands */
